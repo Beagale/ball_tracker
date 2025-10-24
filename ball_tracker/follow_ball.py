@@ -52,14 +52,18 @@ class FollowBall(Node):
         self.target_dist = 0.0
         self.lastrcvtime = time.time() - 10000
 
+        
+
     def timer_callback(self):
         msg = Twist()
+        # print("TESTINGGTGGGGGGGGG")
         if (time.time() - self.lastrcvtime < self.rcv_timeout_secs):
             self.get_logger().info('Target: {}'.format(self.target_val))
             print(self.target_dist)
-            if (self.target_dist < self.max_size_thresh):
-                msg.linear.x = self.forward_chase_speed
+            # TEST: GET RID OF CONDITION, HAVE BALL ALWAYS MOVING FORWARD if (self.target_dist < self.max_size_thresh):
+            msg.linear.x = self.forward_chase_speed
             msg.angular.z = -self.angular_chase_multiplier*self.target_val
+            self.get_logger().info('ANGULAR SPEED: {}'.format(msg.angular.z))
         else:
             self.get_logger().info('Target lost')
             msg.angular.z = self.search_angular_speed
