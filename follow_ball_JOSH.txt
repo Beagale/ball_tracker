@@ -59,7 +59,7 @@ class FollowBall(Node):
         if (time.time() - self.lastrcvtime < self.rcv_timeout_secs):
             self.get_logger().info('Target: {}'.format(self.target_val))
             print(self.target_dist)
-            if (self.target_dist < self.max_size_thresh):
+            if (self.target_dist < self.max_size_thresh): # TEST: Remove the if statement to keep bot moving forward
                 msg.linear.x = self.forward_chase_speed
             msg.angular.z = -self.angular_chase_multiplier*self.target_val
         else:
