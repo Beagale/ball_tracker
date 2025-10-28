@@ -1,0 +1,41 @@
+/* TRY HAVING BOT FACING PARALLEL TO NET OR X AXIS
+
+|----------------| <- NET
+Y
+^
+|
+|
+|
+|
+-----------------> X
+(0,0)
+^ bot starts  here
+
+// Grid points for a 10.97 (along y) by 6.4 (along x) m region (from Claude)
+#             (2.0, 2.0),   # Front left
+#             (2.0, 5.5),   # Center left
+#             (2.0, 9.0),   # Back left
+#             (4.4, 2.0),   # Front center
+#             (4.4, 5.5),   # Center
+#             (4.4, 9.0),   # Back center
+#             (6.4, 2.0),   # Front right
+#             (6.4, 5.5),   # Center right
+#             (6.4, 9.0),   # Back right
+
+// Grid points for small region testing (1 by 1 m region, 4 grid points)
+#             (0.5, 0.5),   # Front left
+#             (0.5, 1.0),   # Back left
+#             (1.0, 0.5),   # Front right
+#             (1.0, 1.0),   # Back right
+
+// Grid points for our desired region, 12 (along y) by 11 (along x) region
+#             (3.4, 2.2),   # Front left
+#             (3.4, 6.0),   # Center left
+#             (3.4, 9.02),   # Back left
+#             (5.5, 2.2),   # Front center
+#             (5.5, 6.0),   # Center
+#             (5.5, 9.02),   # Back center
+#             (7.6, 2.2),   # Front right
+#             (7.6, 6.0),   # Center right
+#             (7.6, 9.02),   # Back right
+

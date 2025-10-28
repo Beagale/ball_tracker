@@ -26,6 +26,7 @@ setup(
             'detect_ball = ball_tracker.detect_ball:main',
             'detect_ball_3d = ball_tracker.detect_ball_3d:main',
             'follow_ball = ball_tracker.follow_ball:main',
+            # WILL NEED TO ADD AN ENTRY POINT FOR grid.py 
         ],
     },
 )
