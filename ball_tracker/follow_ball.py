@@ -23,6 +23,9 @@ class FollowBall(Node):
         self.declare_parameter("max_size_thresh", 0.1)
         self.declare_parameter("filter_value", 0.9)
         self.declare_parameter("center_deadzone", 0.05)  # NEW: deadzone for "centered" detection
+        
+        #TEST
+        self.declare_parameter("zero_angular_override", False)  # If true, force angular.z to 0
 
         self.rcv_timeout_secs = self.get_parameter('rcv_timeout_secs').get_parameter_value().double_value
         self.angular_chase_multiplier = self.get_parameter('angular_chase_multiplier').get_parameter_value().double_value
@@ -31,6 +34,9 @@ class FollowBall(Node):
         self.max_size_thresh = self.get_parameter('max_size_thresh').get_parameter_value().double_value
         self.filter_value = self.get_parameter('filter_value').get_parameter_value().double_value
         self.center_deadzone = self.get_parameter('center_deadzone').get_parameter_value().double_value
+
+        #TEST
+        self.zero_angular_override = self.get_parameter('zero_angular_override').get_parameter_value().bool_value
 
         timer_period = 0.1  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
@@ -51,6 +57,13 @@ class FollowBall(Node):
             else:
                 msg.angular.z = -self.angular_chase_multiplier * self.target_val
                 self.get_logger().info('Adjusting angle: {:.3f}'.format(msg.angular.z))
+                
+            #TEST
+            # Runtime override to force zero angular velocity (useful for debugging / testing)
+            if self.zero_angular_override:
+                if msg.angular.z != 0.0:
+                    self.get_logger().info('zero_angular_override active - forcing angular.z to 0')
+                msg.angular.z = 0.0
             
             msg.linear.x = self.forward_chase_speed
             
