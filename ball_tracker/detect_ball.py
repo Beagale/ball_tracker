@@ -106,6 +106,15 @@ class DetectBall(Node):
 
             if (point_out.z > 0):
                 self.ball_pub.publish(point_out) 
+            # Test
+            else:
+                # Publish zero point to indicate no ball detected
+                zero_point = Point()
+                zero_point.x = 0.0
+                zero_point.y = 0.0
+                zero_point.z = 0.0
+                self.ball_pub.publish(zero_point)
+
         except CvBridgeError as e:
             print(e)  
 
