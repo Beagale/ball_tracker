@@ -1,3 +1,142 @@
+# FROM SAV (NOV 10)
+
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist
+import time
+import math
+
+class SquareGrid(Node):
+    def __init__(self):
+        super().__init__('square_grid')
+        
+        # Publisher for robot velocity commands
+        self.publisher_ = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
+        
+        # Parameters for square movement
+        self.declare_parameter("linear_speed", 0.2)  # m/s forward speed
+        self.declare_parameter("angular_speed", 0.5)  # rad/s turning speed
+        self.declare_parameter("square_side_length", 1.0)  # meters
+        self.declare_parameter("turn_angle", 90.0)  # degrees
+        
+        self.linear_speed = self.get_parameter('linear_speed').get_parameter_value().double_value
+        self.angular_speed = self.get_parameter('angular_speed').get_parameter_value().double_value
+        self.square_side_length = self.get_parameter('square_side_length').get_parameter_value().double_value
+        self.turn_angle = self.get_parameter('turn_angle').get_parameter_value().double_value
+        
+        # State machine variables
+        self.state = "FORWARD"  # States: FORWARD, TURNING, WAITING
+        self.side_count = 0  # Track which side of square we're on (0-3)
+        self.start_time = None
+        self.movement_duration = 0.0
+        
+        # Timer for control loop
+        timer_period = 0.1  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        
+        self.get_logger().info('Square Grid Node Started!')
+        self.get_logger().info(f'Square side length: {self.square_side_length}m')
+        
+    def timer_callback(self):
+        msg = Twist()
+        current_time = time.time()
+        
+        if self.state == "FORWARD":
+            if self.start_time is None:
+                # Starting a new forward movement
+                self.start_time = current_time
+                self.movement_duration = self.square_side_length / self.linear_speed
+                self.get_logger().info(f'Moving forward - Side {self.side_count + 1}/4')
+            
+            elapsed = current_time - self.start_time
+            
+            if elapsed < self.movement_duration:
+                # Continue moving forward
+                msg.linear.x = self.linear_speed
+                msg.angular.z = 0.0
+            else:
+                # Finished moving forward, transition to turning
+                msg.linear.x = 0.0
+                msg.angular.z = 0.0
+                self.publisher_.publish(msg)
+                
+                self.state = "WAITING"
+                self.start_time = current_time
+                self.movement_duration = 0.5  # Wait 0.5 seconds before turning
+                self.get_logger().info('Forward movement complete, waiting...')
+                
+        elif self.state == "WAITING":
+            # Brief pause before turning
+            elapsed = current_time - self.start_time
+            
+            if elapsed < self.movement_duration:
+                msg.linear.x = 0.0
+                msg.angular.z = 0.0
+            else:
+                # Transition to turning
+                self.state = "TURNING"
+                self.start_time = None
+                
+        elif self.state == "TURNING":
+            if self.start_time is None:
+                # Starting a new turn
+                self.start_time = current_time
+                turn_angle_rad = math.radians(self.turn_angle)
+                self.movement_duration = turn_angle_rad / self.angular_speed
+                self.get_logger().info(f'Turning {self.turn_angle} degrees...')
+            
+            elapsed = current_time - self.start_time
+            
+            if elapsed < self.movement_duration:
+                # Continue turning (positive angular.z = counterclockwise)
+                msg.linear.x = 0.0
+                msg.angular.z = self.angular_speed
+            else:
+                # Finished turning
+                msg.linear.x = 0.0
+                msg.angular.z = 0.0
+                self.publisher_.publish(msg)
+                
+                self.side_count += 1
+                
+                if self.side_count >= 4:
+                    # Completed one full square
+                    self.get_logger().info('Square completed! Starting next square...')
+                    self.side_count = 0
+                
+                # Transition back to forward movement
+                self.state = "FORWARD"
+                self.start_time = None
+        
+        self.publisher_.publish(msg)
+    
+    def stop_robot(self):
+        """Helper method to stop the robot"""
+        msg = Twist()
+        msg.linear.x = 0.0
+        msg.angular.z = 0.0
+        self.publisher_.publish(msg)
+
+def main(args=None):
+    rclpy.init(args=args)
+    square_grid = SquareGrid()
+    
+    try:
+        rclpy.spin(square_grid)
+    except KeyboardInterrupt:
+        square_grid.get_logger().info('Shutting down...')
+        square_grid.stop_robot()
+    finally:
+        square_grid.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+
+
+
+#################################################################
+
 # FROM ABBY: Using dead reckoning, robot goes in a square around the court
 # import rclpy
 # from rclpy.node import Node
@@ -494,299 +633,299 @@
 
 # SAV AND ABBY (NOV 7)
 # Import ROS2 Python client library - allows us to use ROS2 features
-import rclpy
-# Import the base Node class - our robot controller will inherit from this
-from rclpy.node import Node
-# Import message types: Point (ball position), Twist (velocity commands)
-from geometry_msgs.msg import Point, Twist
-# Import Odometry message - tells us robot's position and orientation
-from nav_msgs.msg import Odometry
-# Import time module - used to track when we last saw the ball
-import time
-# Import math module - used for trigonometry and angle calculations
-import math
+# import rclpy
+# # Import the base Node class - our robot controller will inherit from this
+# from rclpy.node import Node
+# # Import message types: Point (ball position), Twist (velocity commands)
+# from geometry_msgs.msg import Point, Twist
+# # Import Odometry message - tells us robot's position and orientation
+# from nav_msgs.msg import Odometry
+# # Import time module - used to track when we last saw the ball
+# import time
+# # Import math module - used for trigonometry and angle calculations
+# import math
 
-# Define our main class - it inherits from Node (makes it a ROS2 node)
-class FollowBall(Node):
-    # Constructor - runs when we create a FollowBall object
-    def __init__(self):
-        # Call the parent class (Node) constructor with our node's name
-        super().__init__('follow_ball')
+# # Define our main class - it inherits from Node (makes it a ROS2 node)
+# class FollowBall(Node):
+#     # Constructor - runs when we create a FollowBall object
+#     def __init__(self):
+#         # Call the parent class (Node) constructor with our node's name
+#         super().__init__('follow_ball')
         
-        # Create a subscription to listen for ball detections
-        # This listens to the '/detected_ball' topic
-        self.subscription = self.create_subscription(
-            Point,                    # Message type we expect (x, y, z coordinates)
-            '/detected_ball',         # Topic name where ball positions are published
-            self.listener_callback,   # Function to call when we receive a message
-            10)                       # Queue size - stores up to 10 messages if we're busy
+#         # Create a subscription to listen for ball detections
+#         # This listens to the '/detected_ball' topic
+#         self.subscription = self.create_subscription(
+#             Point,                    # Message type we expect (x, y, z coordinates)
+#             '/detected_ball',         # Topic name where ball positions are published
+#             self.listener_callback,   # Function to call when we receive a message
+#             10)                       # Queue size - stores up to 10 messages if we're busy
         
-        # Create a subscription to listen for robot position updates
-        # This tells us where the robot is and which direction it's facing
-        self.odom_subscription = self.create_subscription(
-            Odometry,                 # Message type containing position and orientation
-            '/odom',        # Topic name where odometry is published
-            self.odom_callback,       # Function to call when we get position updates
-            10)                       # Queue size
+#         # Create a subscription to listen for robot position updates
+#         # This tells us where the robot is and which direction it's facing
+#         self.odom_subscription = self.create_subscription(
+#             Odometry,                 # Message type containing position and orientation
+#             '/odom',        # Topic name where odometry is published
+#             self.odom_callback,       # Function to call when we get position updates
+#             10)                       # Queue size
         
-        # Create a publisher to send velocity commands to the robot
-        # This is how we make the robot move
-        self.publisher_ = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
+#         # Create a publisher to send velocity commands to the robot
+#         # This is how we make the robot move
+#         self.publisher_ = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
         
-        # Declare parameters for ball-following behavior
-        # These can be changed without recompiling the code
+#         # Declare parameters for ball-following behavior
+#         # These can be changed without recompiling the code
         
-        # How long to wait (in seconds) before deciding we've lost the ball
-        self.declare_parameter("rcv_timeout_secs", 1.0)
-        # How aggressively to turn when chasing (higher = sharper turns)
-        self.declare_parameter("angular_chase_multiplier", 0.7)
-        # How fast to move forward when chasing the ball (m/s)
-        self.declare_parameter("forward_chase_speed", 0.2)
-        # Maximum ball size threshold (not currently used in this version)
-        self.declare_parameter("max_size_thresh", 0.1)
-        # Smoothing filter value (0-1, higher = more smoothing)
-        self.declare_parameter("filter_value", 0.9)
-        # Deadzone for "centered" - if ball is this close to center, go straight
-        self.declare_parameter("center_deadzone", 0.05)
+#         # How long to wait (in seconds) before deciding we've lost the ball
+#         self.declare_parameter("rcv_timeout_secs", 1.0)
+#         # How aggressively to turn when chasing (higher = sharper turns)
+#         self.declare_parameter("angular_chase_multiplier", 0.7)
+#         # How fast to move forward when chasing the ball (m/s)
+#         self.declare_parameter("forward_chase_speed", 0.2)
+#         # Maximum ball size threshold (not currently used in this version)
+#         self.declare_parameter("max_size_thresh", 0.1)
+#         # Smoothing filter value (0-1, higher = more smoothing)
+#         self.declare_parameter("filter_value", 0.9)
+#         # Deadzone for "centered" - if ball is this close to center, go straight
+#         self.declare_parameter("center_deadzone", 0.05)
         
-        # Declare parameters for patrol behavior
-        # How fast to move when patrolling (m/s)
-        self.declare_parameter("patrol_speed", 0.3)
-        # How fast to turn when navigating to waypoints (rad/s)
-        self.declare_parameter("patrol_angular_speed", 0.6)
-        # How close we need to get to a waypoint before moving to the next one (meters)
-        self.declare_parameter("goal_tolerance", 0.3)
-        # Minimum angle alignment before moving forward (radians)
-        # self.declare_parameter("angle_tolerance", 0.5) # TEST 0.2)
-        self.declare_parameter("angle_tolerance", 0.2)
+#         # Declare parameters for patrol behavior
+#         # How fast to move when patrolling (m/s)
+#         self.declare_parameter("patrol_speed", 0.3)
+#         # How fast to turn when navigating to waypoints (rad/s)
+#         self.declare_parameter("patrol_angular_speed", 0.6)
+#         # How close we need to get to a waypoint before moving to the next one (meters)
+#         self.declare_parameter("goal_tolerance", 0.3)
+#         # Minimum angle alignment before moving forward (radians)
+#         # self.declare_parameter("angle_tolerance", 0.5) # TEST 0.2)
+#         self.declare_parameter("angle_tolerance", 0.2)
         
-        # Get the actual parameter values and store them in instance variables
-        # .get_parameter() retrieves the parameter
-        # .get_parameter_value() gets its value
-        # .double_value converts it to a floating-point number
-        self.rcv_timeout_secs = self.get_parameter('rcv_timeout_secs').get_parameter_value().double_value
-        self.angular_chase_multiplier = self.get_parameter('angular_chase_multiplier').get_parameter_value().double_value
-        self.forward_chase_speed = self.get_parameter('forward_chase_speed').get_parameter_value().double_value
-        self.max_size_thresh = self.get_parameter('max_size_thresh').get_parameter_value().double_value
-        self.filter_value = self.get_parameter('filter_value').get_parameter_value().double_value
-        self.center_deadzone = self.get_parameter('center_deadzone').get_parameter_value().double_value
-        self.patrol_speed = self.get_parameter('patrol_speed').get_parameter_value().double_value
-        self.patrol_angular_speed = self.get_parameter('patrol_angular_speed').get_parameter_value().double_value
-        self.goal_tolerance = self.get_parameter('goal_tolerance').get_parameter_value().double_value
-        self.angle_tolerance = self.get_parameter('angle_tolerance').get_parameter_value().double_value
+#         # Get the actual parameter values and store them in instance variables
+#         # .get_parameter() retrieves the parameter
+#         # .get_parameter_value() gets its value
+#         # .double_value converts it to a floating-point number
+#         self.rcv_timeout_secs = self.get_parameter('rcv_timeout_secs').get_parameter_value().double_value
+#         self.angular_chase_multiplier = self.get_parameter('angular_chase_multiplier').get_parameter_value().double_value
+#         self.forward_chase_speed = self.get_parameter('forward_chase_speed').get_parameter_value().double_value
+#         self.max_size_thresh = self.get_parameter('max_size_thresh').get_parameter_value().double_value
+#         self.filter_value = self.get_parameter('filter_value').get_parameter_value().double_value
+#         self.center_deadzone = self.get_parameter('center_deadzone').get_parameter_value().double_value
+#         self.patrol_speed = self.get_parameter('patrol_speed').get_parameter_value().double_value
+#         self.patrol_angular_speed = self.get_parameter('patrol_angular_speed').get_parameter_value().double_value
+#         self.goal_tolerance = self.get_parameter('goal_tolerance').get_parameter_value().double_value
+#         self.angle_tolerance = self.get_parameter('angle_tolerance').get_parameter_value().double_value
         
-        # Set up a timer that calls timer_callback every 0.1 seconds (10 Hz)
-        # This is our main control loop
-        timer_period = 0.1  # seconds (100 milliseconds)
-        self.timer = self.create_timer(timer_period, self.timer_callback)
+#         # Set up a timer that calls timer_callback every 0.1 seconds (10 Hz)
+#         # This is our main control loop
+#         timer_period = 0.1  # seconds (100 milliseconds)
+#         self.timer = self.create_timer(timer_period, self.timer_callback)
         
-        # Initialize variables for tracking the ball
-        # target_val: horizontal position of ball (-1 left, 0 center, +1 right)
-        self.target_val = 0.0
-        # target_dist: distance to the ball (z coordinate)
-        self.target_dist = 0.0
-        # lastrcvtime: timestamp of when we last saw the ball
-        # Initialize to far in the past so robot starts in patrol mode
-        self.lastrcvtime = time.time() - 10000
+#         # Initialize variables for tracking the ball
+#         # target_val: horizontal position of ball (-1 left, 0 center, +1 right)
+#         self.target_val = 0.0
+#         # target_dist: distance to the ball (z coordinate)
+#         self.target_dist = 0.0
+#         # lastrcvtime: timestamp of when we last saw the ball
+#         # Initialize to far in the past so robot starts in patrol mode
+#         self.lastrcvtime = time.time() - 10000
         
-        # Define patrol waypoints - 4 corners of a 2m x 2m square
-        # Each point is a dictionary with x and y coordinates
-        self.patrol_points = [
-            {'x': 0.0, 'y': 0.0},    # Bottom-left corner (starting point)
-            {'x': 1.0, 'y': 0.0},    # Bottom-right corner
-            {'x': 1.0, 'y': 1.0},    # Top-right corner
-            {'x': 0.0, 'y': 1.0}     # Top-left corner
-        ]
-        # Track which waypoint we're currently heading toward (0-3)
-        self.current_patrol_index = 0
-        # Add a cooldown to prevent rapid waypoint switching
-        self.waypoint_reached_time = 0.0
-        self.waypoint_cooldown = 2.0  # Wait 2 seconds before considering next waypoint
+#         # Define patrol waypoints - 4 corners of a 2m x 2m square
+#         # Each point is a dictionary with x and y coordinates
+#         self.patrol_points = [
+#             {'x': 0.0, 'y': 0.0},    # Bottom-left corner (starting point)
+#             {'x': 1.0, 'y': 0.0},    # Bottom-right corner
+#             {'x': 1.0, 'y': 1.0},    # Top-right corner
+#             {'x': 0.0, 'y': 1.0}     # Top-left corner
+#         ]
+#         # Track which waypoint we're currently heading toward (0-3)
+#         self.current_patrol_index = 0
+#         # Add a cooldown to prevent rapid waypoint switching
+#         self.waypoint_reached_time = 0.0
+#         self.waypoint_cooldown = 2.0  # Wait 2 seconds before considering next waypoint
         
-        # Initialize variables for tracking robot's current position
-        self.robot_x = 0.0           # Robot's x position in meters
-        self.robot_y = 0.0           # Robot's y position in meters
-        self.robot_yaw = 0.0         # Robot's rotation angle in radians (which way it's facing)
-        self.odom_initialized = False # Flag: have we received odometry data yet?
+#         # Initialize variables for tracking robot's current position
+#         self.robot_x = 0.0           # Robot's x position in meters
+#         self.robot_y = 0.0           # Robot's y position in meters
+#         self.robot_yaw = 0.0         # Robot's rotation angle in radians (which way it's facing)
+#         self.odom_initialized = False # Flag: have we received odometry data yet?
         
-        # Track what the robot is currently doing
-        self.mode = 'patrol'  # Can be 'chase' (following ball) or 'patrol' (searching)
+#         # Track what the robot is currently doing
+#         self.mode = 'patrol'  # Can be 'chase' (following ball) or 'patrol' (searching)
 
-    # Callback function - runs every time we receive odometry data
-    def odom_callback(self, msg):
-        """Update robot's current position from odometry."""
-        # Extract x and y position from the message
-        self.robot_x = msg.pose.pose.position.x # * 10
-        self.robot_y = msg.pose.pose.position.y # * 10
+#     # Callback function - runs every time we receive odometry data
+#     def odom_callback(self, msg):
+#         """Update robot's current position from odometry."""
+#         # Extract x and y position from the message
+#         self.robot_x = msg.pose.pose.position.x # * 10
+#         self.robot_y = msg.pose.pose.position.y # * 10
         
-        # Convert quaternion orientation to yaw angle (rotation around z-axis)
-        # Quaternions are a complex way to represent 3D rotations (x, y, z, w)
-        # We need to convert to Euler angles to get simple rotation in radians
-        orientation_q = msg.pose.pose.orientation
-        # Formula to convert quaternion to yaw angle
-        siny_cosp = 2 * (orientation_q.w * orientation_q.z + orientation_q.x * orientation_q.y)
-        cosy_cosp = 1 - 2 * (orientation_q.y * orientation_q.y + orientation_q.z * orientation_q.z)
-        # atan2 gives us the angle in radians
-        self.robot_yaw = math.atan2(siny_cosp, cosy_cosp)
+#         # Convert quaternion orientation to yaw angle (rotation around z-axis)
+#         # Quaternions are a complex way to represent 3D rotations (x, y, z, w)
+#         # We need to convert to Euler angles to get simple rotation in radians
+#         orientation_q = msg.pose.pose.orientation
+#         # Formula to convert quaternion to yaw angle
+#         siny_cosp = 2 * (orientation_q.w * orientation_q.z + orientation_q.x * orientation_q.y)
+#         cosy_cosp = 1 - 2 * (orientation_q.y * orientation_q.y + orientation_q.z * orientation_q.z)
+#         # atan2 gives us the angle in radians
+#         self.robot_yaw = math.atan2(siny_cosp, cosy_cosp)
         
-        # Mark that we've successfully received odometry data
-        self.odom_initialized = True
+#         # Mark that we've successfully received odometry data
+#         self.odom_initialized = True
 
-    # Helper function to keep angles in the range [-π, π] (or [-180°, 180°])
-    def normalize_angle(self, angle):
-        """Normalize angle to [-pi, pi]."""
-        # If angle is greater than π (180°), subtract 2π (360°) until it's in range
-        while angle > math.pi:
-            angle -= 2 * math.pi
-        # If angle is less than -π (-180°), add 2π (360°) until it's in range
-        while angle < -math.pi:
-            angle += 2 * math.pi
-        return angle
+#     # Helper function to keep angles in the range [-π, π] (or [-180°, 180°])
+#     def normalize_angle(self, angle):
+#         """Normalize angle to [-pi, pi]."""
+#         # If angle is greater than π (180°), subtract 2π (360°) until it's in range
+#         while angle > math.pi:
+#             angle -= 2 * math.pi
+#         # If angle is less than -π (-180°), add 2π (360°) until it's in range
+#         while angle < -math.pi:
+#             angle += 2 * math.pi
+#         return angle
 
-    # Function that controls robot movement during patrol mode
-    def patrol_behavior(self):
-        """Navigate to patrol waypoints."""
-        # If we haven't received position data yet, can't navigate
-        if not self.odom_initialized:
-            self.get_logger().info('Waiting for odometry data...')
-            return Twist()  # Return empty command (no movement)
+#     # Function that controls robot movement during patrol mode
+#     def patrol_behavior(self):
+#         """Navigate to patrol waypoints."""
+#         # If we haven't received position data yet, can't navigate
+#         if not self.odom_initialized:
+#             self.get_logger().info('Waiting for odometry data...')
+#             return Twist()  # Return empty command (no movement)
         
-        # Get the current target waypoint from our patrol list
-        goal = self.patrol_points[self.current_patrol_index]
+#         # Get the current target waypoint from our patrol list
+#         goal = self.patrol_points[self.current_patrol_index]
         
-        # Calculate the difference between goal and current position
-        dx = goal['x'] - self.robot_x  # Horizontal difference
-        dy = goal['y'] - self.robot_y  # Vertical difference
-        # Use Pythagorean theorem to find straight-line distance to goal
-        distance = math.sqrt(dx**2 + dy**2)
-        # Calculate what angle we need to face to point at the goal
-        angle_to_goal = math.atan2(dy, dx)
-        # Calculate the difference between where we're facing and where we need to face
-        angle_error = self.normalize_angle(angle_to_goal - self.robot_yaw)
+#         # Calculate the difference between goal and current position
+#         dx = goal['x'] - self.robot_x  # Horizontal difference
+#         dy = goal['y'] - self.robot_y  # Vertical difference
+#         # Use Pythagorean theorem to find straight-line distance to goal
+#         distance = math.sqrt(dx**2 + dy**2)
+#         # Calculate what angle we need to face to point at the goal
+#         angle_to_goal = math.atan2(dy, dx)
+#         # Calculate the difference between where we're facing and where we need to face
+#         angle_error = self.normalize_angle(angle_to_goal - self.robot_yaw)
         
-        # Create an empty Twist message to fill with velocity commands
-        msg = Twist()
+#         # Create an empty Twist message to fill with velocity commands
+#         msg = Twist()
         
-        # Check if enough time has passed since reaching last waypoint (prevents oscillation)
-        time_since_waypoint = time.time() - self.waypoint_reached_time
-        can_switch_waypoint = time_since_waypoint > self.waypoint_cooldown
+#         # Check if enough time has passed since reaching last waypoint (prevents oscillation)
+#         time_since_waypoint = time.time() - self.waypoint_reached_time
+#         can_switch_waypoint = time_since_waypoint > self.waypoint_cooldown
         
-        # Check if we're close enough to the waypoint (within tolerance)
-        if distance < self.goal_tolerance and can_switch_waypoint:
-            # We've reached this waypoint! Move to the next one
-            self.get_logger().info(f'✓ Reached waypoint {self.current_patrol_index + 1}/4 at ({goal["x"]:.1f}, {goal["y"]:.1f})')
-            # Move to next waypoint, wrapping around to 0 after reaching waypoint 3
-            # The % operator gives remainder, so (3+1)%4 = 0
-            self.current_patrol_index = (self.current_patrol_index + 1) % len(self.patrol_points)
-            self.waypoint_reached_time = time.time()  # Record when we reached it
-            # Stop moving while we transition
-            msg.linear.x = 0.0   # No forward movement
-            msg.angular.z = 0.0  # No rotation
+#         # Check if we're close enough to the waypoint (within tolerance)
+#         if distance < self.goal_tolerance and can_switch_waypoint:
+#             # We've reached this waypoint! Move to the next one
+#             self.get_logger().info(f'✓ Reached waypoint {self.current_patrol_index + 1}/4 at ({goal["x"]:.1f}, {goal["y"]:.1f})')
+#             # Move to next waypoint, wrapping around to 0 after reaching waypoint 3
+#             # The % operator gives remainder, so (3+1)%4 = 0
+#             self.current_patrol_index = (self.current_patrol_index + 1) % len(self.patrol_points)
+#             self.waypoint_reached_time = time.time()  # Record when we reached it
+#             # Stop moving while we transition
+#             msg.linear.x = 0.0   # No forward movement
+#             msg.angular.z = 0.0  # No rotation
             
-            next_goal = self.patrol_points[self.current_patrol_index]
-            self.get_logger().info(f'→ Next target: waypoint {self.current_patrol_index + 1}/4 at ({next_goal["x"]:.1f}, {next_goal["y"]:.1f})')
-        else:
-            # We haven't reached the waypoint yet - navigate toward it
-            # Check if we're facing the wrong direction
-            if abs(angle_error) > self.angle_tolerance:
-                # Turn in place without moving forward
-                # Use proportional control for smoother turns
-                turn_speed = max(0.3, min(self.patrol_angular_speed, abs(angle_error) * 2.0))
-                msg.angular.z = turn_speed if angle_error > 0 else -turn_speed
-                msg.linear.x = 0.0  # Don't move forward while turning
-                # Log what we're doing
-                self.get_logger().info(f'↻ Turning to waypoint {self.current_patrol_index + 1}/4 | Angle error: {math.degrees(angle_error):.1f}° | Distance: {distance:.2f}m')
-            else:
-                # We're facing roughly the right direction - move forward
-                msg.linear.x = self.patrol_speed  # Move at patrol speed
-                # Apply small correction to stay on course (proportional control)
-                # msg.angular.z = 1.5 * angle_error  # Gentle steering adjustment
-                # Apply a gentler, capped proportional correction to avoid oscillation
-                ang = 0.8 * angle_error
-                # cap angular velocity to configured patrol angular speed
-                ang = max(-self.patrol_angular_speed, min(self.patrol_angular_speed, ang))
-                msg.angular.z = ang
+#             next_goal = self.patrol_points[self.current_patrol_index]
+#             self.get_logger().info(f'→ Next target: waypoint {self.current_patrol_index + 1}/4 at ({next_goal["x"]:.1f}, {next_goal["y"]:.1f})')
+#         else:
+#             # We haven't reached the waypoint yet - navigate toward it
+#             # Check if we're facing the wrong direction
+#             if abs(angle_error) > self.angle_tolerance:
+#                 # Turn in place without moving forward
+#                 # Use proportional control for smoother turns
+#                 turn_speed = max(0.3, min(self.patrol_angular_speed, abs(angle_error) * 2.0))
+#                 msg.angular.z = turn_speed if angle_error > 0 else -turn_speed
+#                 msg.linear.x = 0.0  # Don't move forward while turning
+#                 # Log what we're doing
+#                 self.get_logger().info(f'↻ Turning to waypoint {self.current_patrol_index + 1}/4 | Angle error: {math.degrees(angle_error):.1f}° | Distance: {distance:.2f}m')
+#             else:
+#                 # We're facing roughly the right direction - move forward
+#                 msg.linear.x = self.patrol_speed  # Move at patrol speed
+#                 # Apply small correction to stay on course (proportional control)
+#                 # msg.angular.z = 1.5 * angle_error  # Gentle steering adjustment
+#                 # Apply a gentler, capped proportional correction to avoid oscillation
+#                 ang = 0.8 * angle_error
+#                 # cap angular velocity to configured patrol angular speed
+#                 ang = max(-self.patrol_angular_speed, min(self.patrol_angular_speed, ang))
+#                 msg.angular.z = ang
 
-                self.get_logger().info(f'→ Moving to waypoint {self.current_patrol_index + 1}/4 | Distance: {distance:.2f}m | Angle: {math.degrees(angle_error):.1f}°')
+#                 self.get_logger().info(f'→ Moving to waypoint {self.current_patrol_index + 1}/4 | Distance: {distance:.2f}m | Angle: {math.degrees(angle_error):.1f}°')
         
-        # Return the velocity command we've created
-        return msg
+#         # Return the velocity command we've created
+#         return msg
 
-    # Function that controls robot movement when chasing a ball
-    def chase_behavior(self):
-        """Follow the detected ball."""
-        # Create empty velocity command
-        msg = Twist()
-        # Log that we found the ball
-        self.get_logger().info('TARGET FOUND!!!')
-        self.get_logger().info(f'Target X: {self.target_val:.3f}, Dist: {self.target_dist:.3f}')
+#     # Function that controls robot movement when chasing a ball
+#     def chase_behavior(self):
+#         """Follow the detected ball."""
+#         # Create empty velocity command
+#         msg = Twist()
+#         # Log that we found the ball
+#         self.get_logger().info('TARGET FOUND!!!')
+#         self.get_logger().info(f'Target X: {self.target_val:.3f}, Dist: {self.target_dist:.3f}')
         
-        # Check if ball is centered enough (within deadzone)
-        # target_val is negative when ball is left, positive when right
-        if abs(self.target_val) < self.center_deadzone:
-            # Ball is centered - drive straight toward it
-            msg.angular.z = 0.0  # No turning
-            self.get_logger().info('Ball centered - going straight!')
-        else:
-            # Ball is off to the side - turn to face it
-            # Negative sign because positive target_val (ball on right) needs negative angular.z (turn right)
-            msg.angular.z = -self.angular_chase_multiplier * self.target_val
-            self.get_logger().info(f'Adjusting angle: {msg.angular.z:.3f}')
+#         # Check if ball is centered enough (within deadzone)
+#         # target_val is negative when ball is left, positive when right
+#         if abs(self.target_val) < self.center_deadzone:
+#             # Ball is centered - drive straight toward it
+#             msg.angular.z = 0.0  # No turning
+#             self.get_logger().info('Ball centered - going straight!')
+#         else:
+#             # Ball is off to the side - turn to face it
+#             # Negative sign because positive target_val (ball on right) needs negative angular.z (turn right)
+#             msg.angular.z = -self.angular_chase_multiplier * self.target_val
+#             self.get_logger().info(f'Adjusting angle: {msg.angular.z:.3f}')
         
-        # Always move forward when chasing
-        msg.linear.x = self.forward_chase_speed
-        # Return the velocity command
-        return msg
+#         # Always move forward when chasing
+#         msg.linear.x = self.forward_chase_speed
+#         # Return the velocity command
+#         return msg
 
-    # Main control loop - runs every 0.1 seconds (called by the timer)
-    def timer_callback(self):
-        """Main control loop - switches between chase and patrol modes."""
-        # Check how long it's been since we last saw the ball
-        # If recent enough, enter chase mode
-        if (time.time() - self.lastrcvtime < self.rcv_timeout_secs):
-            self.mode = 'chase'  # Switch to chase mode
-            msg = self.chase_behavior()  # Get chase commands
-        else:
-            # Ball hasn't been seen recently - enter patrol mode
-            self.mode = 'patrol'  # Switch to patrol mode
-            msg = self.patrol_behavior()  # Get patrol commands
+#     # Main control loop - runs every 0.1 seconds (called by the timer)
+#     def timer_callback(self):
+#         """Main control loop - switches between chase and patrol modes."""
+#         # Check how long it's been since we last saw the ball
+#         # If recent enough, enter chase mode
+#         if (time.time() - self.lastrcvtime < self.rcv_timeout_secs):
+#             self.mode = 'chase'  # Switch to chase mode
+#             msg = self.chase_behavior()  # Get chase commands
+#         else:
+#             # Ball hasn't been seen recently - enter patrol mode
+#             self.mode = 'patrol'  # Switch to patrol mode
+#             msg = self.patrol_behavior()  # Get patrol commands
         
-        # Send the velocity command to the robot
-        self.publisher_.publish(msg)
+#         # Send the velocity command to the robot
+#         self.publisher_.publish(msg)
 
-    # Callback function - runs every time we receive a ball detection message
-    def listener_callback(self, msg):
-        """Update ball position when detected."""
-        # Get the filter value (how much to smooth the data)
-        f = self.filter_value
-        # Apply exponential smoothing filter to reduce noise
-        # New value = (old value × filter) + (new measurement × (1-filter))
-        # With f=0.9: 90% old value, 10% new measurement (very smooth)
-        self.target_val = self.target_val * f + msg.x * (1 - f)  # Horizontal position
-        self.target_dist = self.target_dist * f + msg.z * (1 - f)  # Distance
-        # Record the current time so we know when we last saw the ball
-        self.lastrcvtime = time.time()
-
-
-# Main function - entry point of the program
-def main(args=None):
-    # Initialize the ROS2 Python client library
-    rclpy.init(args=args)
-    # Create an instance of our FollowBall node
-    follow_ball = FollowBall()
-    # Keep the node running and processing callbacks until interrupted
-    # This handles all subscriptions, timers, etc.
-    rclpy.spin(follow_ball)
-    # Clean up and destroy the node when we're done
-    follow_ball.destroy_node()
-    # Shut down the ROS2 Python client library
-    rclpy.shutdown()
+#     # Callback function - runs every time we receive a ball detection message
+#     def listener_callback(self, msg):
+#         """Update ball position when detected."""
+#         # Get the filter value (how much to smooth the data)
+#         f = self.filter_value
+#         # Apply exponential smoothing filter to reduce noise
+#         # New value = (old value × filter) + (new measurement × (1-filter))
+#         # With f=0.9: 90% old value, 10% new measurement (very smooth)
+#         self.target_val = self.target_val * f + msg.x * (1 - f)  # Horizontal position
+#         self.target_dist = self.target_dist * f + msg.z * (1 - f)  # Distance
+#         # Record the current time so we know when we last saw the ball
+#         self.lastrcvtime = time.time()
 
 
-# Standard Python idiom - only run main() if this file is executed directly
-# (not if it's imported as a module)
-if __name__ == '__main__':
-    main()
+# # Main function - entry point of the program
+# def main(args=None):
+#     # Initialize the ROS2 Python client library
+#     rclpy.init(args=args)
+#     # Create an instance of our FollowBall node
+#     follow_ball = FollowBall()
+#     # Keep the node running and processing callbacks until interrupted
+#     # This handles all subscriptions, timers, etc.
+#     rclpy.spin(follow_ball)
+#     # Clean up and destroy the node when we're done
+#     follow_ball.destroy_node()
+#     # Shut down the ROS2 Python client library
+#     rclpy.shutdown()
+
+
+# # Standard Python idiom - only run main() if this file is executed directly
+# # (not if it's imported as a module)
+# if __name__ == '__main__':
+#     main()
 
 
 
