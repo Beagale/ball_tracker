@@ -19,18 +19,18 @@ class FollowBall(Node):
         # Original parameters
         self.declare_parameter("rcv_timeout_secs", 1.0)
         self.declare_parameter("angular_chase_multiplier", 0.7)
-        self.declare_parameter("forward_chase_speed", 0.2)
-        self.declare_parameter("search_angular_speed", 0.5)
+        self.declare_parameter("forward_chase_speed", 1.0) # SIM MODE 0.2
+        self.declare_parameter("search_angular_speed", 0.25) # SIM MODE 0.5
         self.declare_parameter("max_size_thresh", 0.1)
         self.declare_parameter("filter_value", 0.9)
         self.declare_parameter("center_deadzone", 0.05)
         
         # New parameters for square grid navigation
         self.declare_parameter("square_side_duration", 5.0)  # Time to travel one side (seconds)
-        self.declare_parameter("rotation_duration", 3)  # Time to rotate 90 degrees (seconds)
-        self.declare_parameter("search_duration", 7.25)  # Time to search at each corner (seconds) (FOR SIM MODE = 15.5)
+        self.declare_parameter("rotation_duration", 3)  # Time to rotate 90 degrees (seconds) (FOR SIM MODE = 3)
+        self.declare_parameter("search_duration", 11.2)  # Time to search at each corner (seconds) (FOR SIM MODE = 15.5)
         self.declare_parameter("grid_forward_speed", 0.2)  # Speed when moving between corners
-        self.declare_parameter("grid_angular_speed", 0.5)  # Speed when rotating at corners
+        self.declare_parameter("grid_angular_speed", 0.5)  # Speed when rotating at corners (SIM MODE 0.5)
         
         self.rcv_timeout_secs = self.get_parameter('rcv_timeout_secs').get_parameter_value().double_value
         self.angular_chase_multiplier = self.get_parameter('angular_chase_multiplier').get_parameter_value().double_value
