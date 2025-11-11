@@ -1,137 +1,942 @@
-# FROM SAV (NOV 10)
+# FROM ABBY (NOV 10)
 
 import rclpy
 from rclpy.node import Node
+from geometry_msgs.msg import Point
 from geometry_msgs.msg import Twist
 import time
-import math
 
-class SquareGrid(Node):
+class FollowBall(Node):
     def __init__(self):
-        super().__init__('square_grid')
-        
-        # Publisher for robot velocity commands
+        super().__init__('follow_ball')
+        self.subscription = self.create_subscription(
+            Point,
+            '/detected_ball',
+            self.listener_callback,
+            10)
         self.publisher_ = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
         
-        # Parameters for square movement
-        self.declare_parameter("linear_speed", 0.2)  # m/s forward speed
-        self.declare_parameter("angular_speed", 0.5)  # rad/s turning speed
-        self.declare_parameter("square_side_length", 1.0)  # meters
-        self.declare_parameter("turn_angle", 90.0)  # degrees
+        # Original parameters
+        self.declare_parameter("rcv_timeout_secs", 1.0)
+        self.declare_parameter("angular_chase_multiplier", 0.7)
+        self.declare_parameter("forward_chase_speed", 0.2)
+        self.declare_parameter("search_angular_speed", 0.5)
+        self.declare_parameter("max_size_thresh", 0.1)
+        self.declare_parameter("filter_value", 0.9)
+        self.declare_parameter("center_deadzone", 0.05)
         
-        self.linear_speed = self.get_parameter('linear_speed').get_parameter_value().double_value
-        self.angular_speed = self.get_parameter('angular_speed').get_parameter_value().double_value
-        self.square_side_length = self.get_parameter('square_side_length').get_parameter_value().double_value
-        self.turn_angle = self.get_parameter('turn_angle').get_parameter_value().double_value
+        # New parameters for square grid navigation
+        self.declare_parameter("square_side_duration", 5.0)  # Time to travel one side (seconds)
+        self.declare_parameter("rotation_duration", 3)  # Time to rotate 90 degrees (seconds)
+        self.declare_parameter("search_duration", 3.0)  # Time to search at each corner (seconds)
+        self.declare_parameter("grid_forward_speed", 0.2)  # Speed when moving between corners
+        self.declare_parameter("grid_angular_speed", 0.5)  # Speed when rotating at corners
         
-        # State machine variables
-        self.state = "FORWARD"  # States: FORWARD, TURNING, WAITING
-        self.side_count = 0  # Track which side of square we're on (0-3)
-        self.start_time = None
-        self.movement_duration = 0.0
+        self.rcv_timeout_secs = self.get_parameter('rcv_timeout_secs').get_parameter_value().double_value
+        self.angular_chase_multiplier = self.get_parameter('angular_chase_multiplier').get_parameter_value().double_value
+        self.forward_chase_speed = self.get_parameter('forward_chase_speed').get_parameter_value().double_value
+        self.search_angular_speed = self.get_parameter('search_angular_speed').get_parameter_value().double_value
+        self.max_size_thresh = self.get_parameter('max_size_thresh').get_parameter_value().double_value
+        self.filter_value = self.get_parameter('filter_value').get_parameter_value().double_value
+        self.center_deadzone = self.get_parameter('center_deadzone').get_parameter_value().double_value
         
-        # Timer for control loop
+        self.square_side_duration = self.get_parameter('square_side_duration').get_parameter_value().double_value
+        self.rotation_duration = self.get_parameter('rotation_duration').get_parameter_value().double_value
+        self.search_duration = self.get_parameter('search_duration').get_parameter_value().double_value
+        self.grid_forward_speed = self.get_parameter('grid_forward_speed').get_parameter_value().double_value
+        self.grid_angular_speed = self.get_parameter('grid_angular_speed').get_parameter_value().double_value
+        
         timer_period = 0.1  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
         
-        self.get_logger().info('Square Grid Node Started!')
-        self.get_logger().info(f'Square side length: {self.square_side_length}m')
+        self.target_val = 0.0
+        self.target_dist = 0.0
+        self.lastrcvtime = time.time() - 10000
+        
+        # State machine for square grid navigation
+        self.state = "MOVING_TO_CORNER"  # States: MOVING_TO_CORNER, ROTATING, SEARCHING, COLLECTING, RETURNING
+        self.current_corner = 0  # 0, 1, 2, 3 for the four corners
+        self.state_start_time = time.time()
+        self.collection_start_pos = None  # Store where we started collecting
+        self.return_duration = 0.0  # Time it took to collect (for returning)
         
     def timer_callback(self):
         msg = Twist()
         current_time = time.time()
+        elapsed = current_time - self.state_start_time
         
-        if self.state == "FORWARD":
-            if self.start_time is None:
-                # Starting a new forward movement
-                self.start_time = current_time
-                self.movement_duration = self.square_side_length / self.linear_speed
-                self.get_logger().info(f'Moving forward - Side {self.side_count + 1}/4')
+        # Check if ball is detected
+        ball_detected = (time.time() - self.lastrcvtime < self.rcv_timeout_secs)
+        
+        # State machine
+        if self.state == "MOVING_TO_CORNER":
+            self.get_logger().info(f'Moving to corner {self.current_corner}, elapsed: {elapsed:.2f}s')
+            msg.linear.x = self.grid_forward_speed
+            msg.angular.z = 0.0
             
-            elapsed = current_time - self.start_time
+            # Check if ball detected while moving
+            if ball_detected:
+                self.get_logger().info('Ball detected while moving! Starting collection.')
+                self.state = "COLLECTING"
+                self.collection_start_pos = current_time
+                self.return_duration = 0.0
+            elif elapsed >= self.square_side_duration:
+                # Reached corner, start rotating
+                self.state = "ROTATING"
+                self.state_start_time = current_time
+                
+        elif self.state == "ROTATING":
+            self.get_logger().info(f'Rotating at corner {self.current_corner}, elapsed: {elapsed:.2f}s')
+            msg.linear.x = 0.0
+            msg.angular.z = self.grid_angular_speed
             
-            if elapsed < self.movement_duration:
-                # Continue moving forward
-                msg.linear.x = self.linear_speed
-                msg.angular.z = 0.0
+            # Check if ball detected while rotating
+            if ball_detected:
+                self.get_logger().info('Ball detected while rotating! Starting collection.')
+                self.state = "COLLECTING"
+                self.collection_start_pos = current_time
+                self.return_duration = 0.0
+            elif elapsed >= self.rotation_duration:
+                # Finished rotating, start searching
+                self.state = "SEARCHING"
+                self.state_start_time = current_time
+                
+        elif self.state == "SEARCHING":
+            self.get_logger().info(f'Searching at corner {self.current_corner}, elapsed: {elapsed:.2f}s')
+            msg.linear.x = 0.0
+            msg.angular.z = self.search_angular_speed
+            
+            if ball_detected:
+                self.get_logger().info('Ball found during search! Starting collection.')
+                self.state = "COLLECTING"
+                self.collection_start_pos = current_time
+                self.return_duration = 0.0
+            elif elapsed >= self.search_duration:
+                # No ball found, move to next corner
+                self.current_corner = (self.current_corner + 1) % 4
+                self.state = "MOVING_TO_CORNER"
+                self.state_start_time = current_time
+                self.get_logger().info(f'Moving to next corner: {self.current_corner}')
+                
+        elif self.state == "COLLECTING":
+            self.get_logger().info('COLLECTING BALL!!!')
+            self.get_logger().info('Target X: {:.3f}, Dist: {:.3f}'.format(self.target_val, self.target_dist))
+            
+            if ball_detected:
+                # Track collection duration
+                self.return_duration = current_time - self.collection_start_pos
+                
+                # Apply deadzone - if ball is centered enough, don't rotate
+                if abs(self.target_val) < self.center_deadzone:
+                    msg.angular.z = 0.0
+                    self.get_logger().info('Ball centered - going straight!')
+                else:
+                    msg.angular.z = -self.angular_chase_multiplier * self.target_val
+                    self.get_logger().info('Adjusting angle: {:.3f}'.format(msg.angular.z))
+                
+                msg.linear.x = self.forward_chase_speed
+                
+                # Check if ball is close enough (collected)
+                if self.target_dist > self.max_size_thresh:
+                    self.get_logger().info('Ball collected! Returning to position.')
+                    self.state = "RETURNING"
+                    self.state_start_time = current_time
             else:
-                # Finished moving forward, transition to turning
-                msg.linear.x = 0.0
-                msg.angular.z = 0.0
-                self.publisher_.publish(msg)
+                # Lost the ball during collection, return
+                self.get_logger().info('Lost ball during collection! Returning to position.')
+                self.state = "RETURNING"
+                self.state_start_time = current_time
                 
-                self.state = "WAITING"
-                self.start_time = current_time
-                self.movement_duration = 0.5  # Wait 0.5 seconds before turning
-                self.get_logger().info('Forward movement complete, waiting...')
-                
-        elif self.state == "WAITING":
-            # Brief pause before turning
-            elapsed = current_time - self.start_time
+        elif self.state == "RETURNING":
+            self.get_logger().info(f'Returning to grid position, elapsed: {elapsed:.2f}s')
+            # Move backward for the same duration as collection
+            msg.linear.x = -self.grid_forward_speed
+            msg.angular.z = 0.0
             
-            if elapsed < self.movement_duration:
-                msg.linear.x = 0.0
-                msg.angular.z = 0.0
-            else:
-                # Transition to turning
-                self.state = "TURNING"
-                self.start_time = None
-                
-        elif self.state == "TURNING":
-            if self.start_time is None:
-                # Starting a new turn
-                self.start_time = current_time
-                turn_angle_rad = math.radians(self.turn_angle)
-                self.movement_duration = turn_angle_rad / self.angular_speed
-                self.get_logger().info(f'Turning {self.turn_angle} degrees...')
-            
-            elapsed = current_time - self.start_time
-            
-            if elapsed < self.movement_duration:
-                # Continue turning (positive angular.z = counterclockwise)
-                msg.linear.x = 0.0
-                msg.angular.z = self.angular_speed
-            else:
-                # Finished turning
-                msg.linear.x = 0.0
-                msg.angular.z = 0.0
-                self.publisher_.publish(msg)
-                
-                self.side_count += 1
-                
-                if self.side_count >= 4:
-                    # Completed one full square
-                    self.get_logger().info('Square completed! Starting next square...')
-                    self.side_count = 0
-                
-                # Transition back to forward movement
-                self.state = "FORWARD"
-                self.start_time = None
+            if elapsed >= self.return_duration:
+                # Returned, continue to next corner
+                self.current_corner = (self.current_corner + 1) % 4
+                self.state = "MOVING_TO_CORNER"
+                self.state_start_time = current_time
+                self.get_logger().info(f'Returned! Moving to next corner: {self.current_corner}')
         
         self.publisher_.publish(msg)
     
-    def stop_robot(self):
-        """Helper method to stop the robot"""
-        msg = Twist()
-        msg.linear.x = 0.0
-        msg.angular.z = 0.0
-        self.publisher_.publish(msg)
+    def listener_callback(self, msg):
+        f = self.filter_value
+        self.target_val = self.target_val * f + msg.x * (1-f)
+        self.target_dist = self.target_dist * f + msg.z * (1-f)
+        self.lastrcvtime = time.time()
 
 def main(args=None):
     rclpy.init(args=args)
-    square_grid = SquareGrid()
-    
-    try:
-        rclpy.spin(square_grid)
-    except KeyboardInterrupt:
-        square_grid.get_logger().info('Shutting down...')
-        square_grid.stop_robot()
-    finally:
-        square_grid.destroy_node()
-        rclpy.shutdown()
+    follow_ball = FollowBall()
+    rclpy.spin(follow_ball)
+    follow_ball.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
+
+######################
+
+# FROM SAV (NOV 10) SQUARE CODE W/ ROTATION AT EACH POINT AND GOES TOWARDS BALL
+
+#!/usr/bin/env python3
+
+#!/usr/bin/env python3
+
+#!/usr/bin/env python3
+# import rclpy
+# from rclpy.node import Node
+# from geometry_msgs.msg import Twist, Point
+# import time
+# import math
+# import math as _math
+
+# class SquareGridWithCollection(Node):
+#     def __init__(self):
+#         super().__init__('square_grid_with_collection')
+
+#         # Publisher for robot velocity commands
+#         self.cmd_topic = '/diff_cont/cmd_vel_unstamped'
+#         self.publisher_ = self.create_publisher(Twist, self.cmd_topic, 10)
+
+#         # Subscriber for ball detection
+#         self.subscription = self.create_subscription(
+#             Point,
+#             '/detected_ball',
+#             self.ball_callback,
+#             10)
+
+#         # Parameters
+#         self.declare_parameter("linear_speed", 0.2)
+#         self.declare_parameter("angular_speed", 0.5)
+#         self.declare_parameter("square_side_length", 1.0)
+#         self.declare_parameter("turn_angle", 90.0)
+#         self.declare_parameter("detection_spins", 3)
+#         self.declare_parameter("angular_chase_multiplier", 0.7)
+#         self.declare_parameter("approach_speed", 0.15)
+#         self.declare_parameter("ball_collection_distance", 0.3)
+#         self.declare_parameter("center_deadzone", 0.05)
+#         self.declare_parameter("ball_timeout", 1.0)
+#         # small safety param: ignore unrealistically small z (might be sensor artifact)
+#         self.declare_parameter("min_valid_z", 0.01)
+
+#         self.linear_speed = self.get_parameter('linear_speed').get_parameter_value().double_value
+#         self.angular_speed = self.get_parameter('angular_speed').get_parameter_value().double_value
+#         self.square_side_length = self.get_parameter('square_side_length').get_parameter_value().double_value
+#         self.turn_angle = self.get_parameter('turn_angle').get_parameter_value().double_value
+#         self.detection_spins = self.get_parameter('detection_spins').get_parameter_value().integer_value
+#         self.angular_chase_multiplier = self.get_parameter('angular_chase_multiplier').get_parameter_value().double_value
+#         self.approach_speed = self.get_parameter('approach_speed').get_parameter_value().double_value
+#         self.ball_collection_distance = self.get_parameter('ball_collection_distance').get_parameter_value().double_value
+#         self.center_deadzone = self.get_parameter('center_deadzone').get_parameter_value().double_value
+#         self.ball_timeout = self.get_parameter('ball_timeout').get_parameter_value().double_value
+#         self.min_valid_z = self.get_parameter('min_valid_z').get_parameter_value().double_value
+
+#         # State machine
+#         self.state = "FORWARD"
+#         self.side_count = 0
+#         self.spin_count = 0
+#         self.start_time = None
+#         self.movement_duration = 0.0
+
+#         # Ball detection variables
+#         self.ball_detected = False
+#         self.ball_x = 0.0
+#         self.ball_z = float('inf')
+#         self.last_ball_time = 0.0
+
+#         # Position tracking for return
+#         self.original_position_distance = 0.0
+#         self.return_start_time = None
+
+#         # Timer
+#         self.timer_period = 0.1  # seconds
+#         self.timer = self.create_timer(self.timer_period, self.timer_callback)
+
+#         # Logging header
+#         self.get_logger().info('=' * 60)
+#         self.get_logger().info('Square Grid with Ball Collection Node Started!')
+#         self.get_logger().info(f'Publishing cmd_vel to: {self.cmd_topic}')
+#         self.get_logger().info(f'Square side length: {self.square_side_length}m')
+#         self.get_logger().info(f'Detection spins per corner: {self.detection_spins}')
+#         self.get_logger().info(f'Linear speed: {self.linear_speed} m/s')
+#         self.get_logger().info(f'Angular speed: {self.angular_speed} rad/s')
+#         self.get_logger().info(f'Approach speed: {self.approach_speed} m/s')
+#         self.get_logger().info(f'Collection distance: {self.ball_collection_distance}m')
+#         self.get_logger().info('=' * 60)
+
+#     def ball_callback(self, msg: Point):
+#         """Callback when ball is detected"""
+#         # Defensive: if msg.z invalid -> ignore
+#         if msg is None:
+#             return
+
+#         # Some detectors may publish tiny or negative z; treat those as invalid
+#         if msg.z is None or _math.isnan(msg.z) or msg.z <= 0.0:
+#             self.get_logger().debug(f'Ignored invalid z from detector: {msg.z}')
+#             return
+
+#         self.ball_detected = True
+#         self.ball_x = float(msg.x)
+#         self.ball_z = float(msg.z)
+#         self.last_ball_time = time.time()
+
+#         self.get_logger().debug(f'BALL CALLBACK: X={self.ball_x:.3f} Z={self.ball_z:.3f} (state={self.state})')
+
+#     def timer_callback(self):
+#         """Main control loop executed on timer"""
+#         msg = Twist()
+#         now = time.time()
+
+#         # Helper small fns
+#         def publish_and_log(tag=''):
+#             # Publish twist and small status line for debugging
+#             self.publisher_.publish(msg)
+#             self.get_logger().debug(f'[FINAL CMD] state={self.state:15s} linear={msg.linear.x:.3f} angular={msg.angular.z:.3f} {tag}')
+
+#         # If detection is stale, consider ball lost
+#         if self.ball_detected and (now - self.last_ball_time > self.ball_timeout):
+#             self.get_logger().info(f'[GLOBAL] Ball detection timed out ({now - self.last_ball_time:.2f}s).')
+#             self.ball_detected = False
+#             self.ball_x = 0.0
+#             self.ball_z = float('inf')
+
+#         # ---------- STATE: FORWARD ----------
+#         if self.state == "FORWARD":
+#             if self.start_time is None:
+#                 self.start_time = now
+#                 self.movement_duration = self.square_side_length / max(1e-6, self.linear_speed)
+#                 self.get_logger().info(f'[FORWARD] Starting side {self.side_count + 1}/4 ({self.square_side_length}m)')
+
+#             elapsed = now - self.start_time
+#             if elapsed < self.movement_duration:
+#                 msg.linear.x = self.linear_speed
+#                 msg.angular.z = 0.0
+#                 publish_and_log()
+#                 return
+#             else:
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#                 publish_and_log('[FORWARD complete]')
+#                 self.state = "WAITING"
+#                 self.start_time = now
+#                 self.movement_duration = 0.5
+#                 self.spin_count = 0
+#                 self.ball_detected = False
+#                 return
+
+#         # ---------- STATE: WAITING ----------
+#         if self.state == "WAITING":
+#             elapsed = now - self.start_time
+#             if elapsed < self.movement_duration:
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#                 publish_and_log('[WAITING]')
+#                 return
+#             else:
+#                 self.get_logger().info('[WAITING] Starting DETECT_BALL')
+#                 self.state = "DETECT_BALL"
+#                 self.start_time = None
+#                 return
+
+#         # ---------- STATE: DETECT_BALL ----------
+#         if self.state == "DETECT_BALL":
+#             if self.start_time is None:
+#                 self.start_time = now
+#                 full_rotation_rad = 2.0 * math.pi
+#                 self.movement_duration = full_rotation_rad / max(1e-6, self.angular_speed)
+#                 self.get_logger().info(f'[DETECT_BALL] Starting spin {self.spin_count + 1}/{self.detection_spins}')
+
+#             elapsed = now - self.start_time
+
+#             # If ball detected and fresh
+#             if self.ball_detected:
+#                 # move to align state
+#                 self.get_logger().info('[DETECT_BALL] BALL DETECTED, ALIGNING!')
+#                 self.state = "ALIGN_TO_BALL"
+#                 self.start_time = None
+#                 # ensure we start with fresh tracking counters for approach
+#                 self.original_position_distance = 0.0
+#                 publish_and_log('[DETECT_BALL -> ALIGN]')
+#                 return
+
+#             # otherwise continue spinning
+#             if elapsed < self.movement_duration:
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = self.angular_speed
+#                 publish_and_log('[DETECT_BALL spinning]')
+#                 return
+#             else:
+#                 # spin finished
+#                 self.spin_count += 1
+#                 self.get_logger().info(f'[DETECT_BALL] Spin {self.spin_count}/{self.detection_spins} complete')
+#                 if self.spin_count >= self.detection_spins:
+#                     self.get_logger().info('[DETECT_BALL] All spins complete. No ball found.')
+#                     self.state = "WAITING_BEFORE_TURN"
+#                     self.start_time = now
+#                     self.movement_duration = 0.5
+#                     publish_and_log('[no-ball]')
+#                     return
+#                 else:
+#                     self.start_time = None
+#                     publish_and_log('[DETECT_BALL next spin]')
+#                     return
+
+#         # ---------- STATE: ALIGN_TO_BALL ----------
+#         if self.state == "ALIGN_TO_BALL":
+#             # if we lost the ball mid-align
+#             if not self.ball_detected:
+#                 self.get_logger().warn('[ALIGN_TO_BALL] Ball lost — returning to detection.')
+#                 self.state = "DETECT_BALL"
+#                 self.start_time = None
+#                 publish_and_log('[lost ball]')
+#                 return
+
+#             # Sanity check on ball_z
+#             if self.ball_z < self.min_valid_z:
+#                 self.get_logger().warn(f'[ALIGN_TO_BALL] Ignoring suspicious small z={self.ball_z:.4f}. Treating as lost.')
+#                 self.ball_detected = False
+#                 self.state = "DETECT_BALL"
+#                 self.start_time = None
+#                 publish_and_log('[bad z]')
+#                 return
+
+#             centered = abs(self.ball_x) < self.center_deadzone
+#             self.get_logger().info(f'[ALIGN_TO_BALL] Ball X={self.ball_x:.3f} centered={centered}')
+#             if centered:
+#                 # ball roughly centered; move to approach
+#                 self.get_logger().info('[ALIGN_TO_BALL] Centered — starting approach.')
+#                 self.state = "APPROACH_BALL"
+#                 # mark when approach started so distance integration works
+#                 self.start_time = now
+#                 # distance traveled toward ball so far (we compute during approach)
+#                 self.original_position_distance = 0.0
+#                 publish_and_log('[aligned -> approach]')
+#                 return
+#             else:
+#                 # rotate towards ball; negative sign depends on detector coordinate convention
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = -self.angular_chase_multiplier * float(self.ball_x)
+#                 publish_and_log('[ALIGNING]')
+#                 return
+
+#         # ---------- STATE: APPROACH_BALL ----------
+#         if self.state == "APPROACH_BALL":
+#             # lost check
+#             if not self.ball_detected:
+#                 self.get_logger().warn('[APPROACH_BALL] Ball lost — back to detection.')
+#                 self.state = "DETECT_BALL"
+#                 self.start_time = None
+#                 publish_and_log('[lost during approach]')
+#                 return
+
+#             # Sanity check on ball_z
+#             if self.ball_z < self.min_valid_z:
+#                 self.get_logger().warn(f'[APPROACH_BALL] Suspicious small z={self.ball_z:.4f}. Cancelling approach.')
+#                 self.ball_detected = False
+#                 self.state = "DETECT_BALL"
+#                 self.start_time = None
+#                 publish_and_log('[bad z]')
+#                 return
+
+#             # If already within collection distance -> collect
+#             if self.ball_z <= self.ball_collection_distance:
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#                 publish_and_log('[APPROACH_BALL -> COLLECT]')
+#                 self.get_logger().info('[APPROACH_BALL] BALL REACHED! Starting collection.')
+#                 self.state = "COLLECT_BALL"
+#                 self.start_time = now
+#                 self.movement_duration = 2.0
+#                 # Prevent re-triggering while collecting
+#                 self.ball_detected = False
+#                 return
+
+#             # Not reached: move forward while doing small angular corrections
+#             # Angular correction proportional to error
+#             if abs(self.ball_x) < self.center_deadzone:
+#                 msg.angular.z = 0.0
+#             else:
+#                 msg.angular.z = - (self.angular_chase_multiplier * 0.5) * float(self.ball_x)
+
+#             msg.linear.x = self.approach_speed
+
+#             # Accumulate traveled distance using actual timer period
+#             # Protect against missing start_time
+#             if self.start_time is None:
+#                 self.start_time = now
+#             # integrate distance by timer_period (we call timer every timer_period)
+#             self.original_position_distance += abs(self.approach_speed) * self.timer_period
+
+#             self.get_logger().info(f'[APPROACH_BALL] Approaching: z={self.ball_z:.3f}m x={self.ball_x:.3f} dist_traveled={self.original_position_distance:.3f}m')
+#             publish_and_log('[approaching]')
+#             return
+
+#         # ---------- STATE: COLLECT_BALL ----------
+#         if self.state == "COLLECT_BALL":
+#             elapsed = now - self.start_time if self.start_time is not None else 0.0
+#             msg.linear.x = 0.0
+#             msg.angular.z = 0.0
+#             if elapsed >= self.movement_duration:
+#                 self.get_logger().info('[COLLECT_BALL] Collection complete — returning to position.')
+#                 self.state = "RETURN_TO_POSITION"
+#                 self.return_start_time = now
+#                 publish_and_log('[collected -> return]')
+#                 return
+#             else:
+#                 # occasional collecting log
+#                 if int(elapsed * 10) % 10 == 0:
+#                     self.get_logger().info(f'[COLLECT_BALL] Collecting... {elapsed:.1f}/{self.movement_duration:.1f}s')
+#                 publish_and_log('[collecting]')
+#                 return
+
+#         # ---------- STATE: RETURN_TO_POSITION ----------
+#         if self.state == "RETURN_TO_POSITION":
+#             elapsed = now - self.return_start_time if self.return_start_time else 0.0
+#             distance_to_travel = self.original_position_distance
+#             if distance_to_travel <= 0.0:
+#                 self.get_logger().info('[RETURN] Nothing to return — go to detect')
+#                 self.state = "DETECT_BALL"
+#                 self.start_time = None
+#                 publish_and_log('[return skip]')
+#                 return
+
+#             time_needed = distance_to_travel / max(1e-6, self.approach_speed)
+#             if elapsed < time_needed:
+#                 # back up
+#                 msg.linear.x = -self.approach_speed
+#                 msg.angular.z = 0.0
+#                 remaining = max(0.0, distance_to_travel - elapsed * self.approach_speed)
+#                 if int(elapsed * 10) % 10 == 0:
+#                     self.get_logger().info(f'[RETURN] Backing up... {remaining:.2f}m remaining')
+#                 publish_and_log('[returning]')
+#                 return
+#             else:
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#                 publish_and_log('[return done]')
+#                 self.get_logger().info('[RETURN] Returned to original position. Resuming detection.')
+#                 # resume detection spins to look for next ball
+#                 self.state = "DETECT_BALL"
+#                 self.start_time = None
+#                 self.spin_count = 0
+#                 self.ball_detected = False
+#                 return
+
+#         # ---------- STATE: WAITING_BEFORE_TURN ----------
+#         if self.state == "WAITING_BEFORE_TURN":
+#             elapsed = now - self.start_time if self.start_time else 0.0
+#             if elapsed < self.movement_duration:
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#                 publish_and_log('[waiting before turn]')
+#                 return
+#             else:
+#                 self.get_logger().info('[WAITING_BEFORE_TURN] Ready to turn')
+#                 self.state = "TURNING"
+#                 self.start_time = None
+#                 return
+
+#         # ---------- STATE: TURNING ----------
+#         if self.state == "TURNING":
+#             if self.start_time is None:
+#                 self.start_time = now
+#                 turn_angle_rad = math.radians(self.turn_angle)
+#                 self.movement_duration = turn_angle_rad / max(1e-6, self.angular_speed)
+#                 self.get_logger().info(f'[TURNING] Starting {self.turn_angle}° turn...')
+
+#             elapsed = now - self.start_time
+#             if elapsed < self.movement_duration:
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = self.angular_speed
+#                 publish_and_log('[turning]')
+#                 return
+#             else:
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#                 publish_and_log('[turn complete]')
+#                 self.side_count += 1
+#                 if self.side_count >= 4:
+#                     self.get_logger().info('SQUARE COMPLETED! Starting next square...')
+#                     self.side_count = 0
+#                 else:
+#                     self.get_logger().info(f'[TURNING] Complete. Next side {self.side_count + 1}/4')
+#                 self.state = "FORWARD"
+#                 self.start_time = None
+#                 return
+
+#         # Default publish final cmd if no state matched
+#         publish_and_log('[default end]')
+
+# def main(args=None):
+#     rclpy.init(args=args)
+#     node = SquareGridWithCollection()
+#     try:
+#         rclpy.spin(node)
+#     except KeyboardInterrupt:
+#         node.get_logger().info('\nShutting down gracefully...')
+#         # stop robot
+#         msg = Twist()
+#         msg.linear.x = 0.0
+#         msg.angular.z = 0.0
+#         node.publisher_.publish(msg)
+#     finally:
+#         node.destroy_node()
+#         rclpy.shutdown()
+
+# if __name__ == '__main__':
+#     main()
+
+
+#################################################
+
+# FROM SAV (NOV 10), goes in a square and rotates at each point
+
+# import rclpy
+# from rclpy.node import Node
+# from geometry_msgs.msg import Twist, Point
+# import time
+# import math
+
+# class SquareGridWithDetection(Node):
+#     def __init__(self):
+#         super().__init__('square_grid_with_detection')
+        
+#         # Publisher for robot velocity commands
+#         self.publisher_ = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
+        
+#         # Subscriber for ball detection
+#         self.subscription = self.create_subscription(
+#             Point,
+#             '/detected_ball',
+#             self.ball_callback,
+#             10)
+        
+#         # Parameters for square movement
+#         self.declare_parameter("linear_speed", 0.2)  # m/s forward speed
+#         self.declare_parameter("angular_speed", 0.5)  # rad/s turning speed
+#         self.declare_parameter("square_side_length", 1.0)  # meters
+#         self.declare_parameter("turn_angle", 90.0)  # degrees
+#         self.declare_parameter("detection_spins", 3)  # Number of 360° spins
+        
+#         self.linear_speed = self.get_parameter('linear_speed').get_parameter_value().double_value
+#         self.angular_speed = self.get_parameter('angular_speed').get_parameter_value().double_value
+#         self.square_side_length = self.get_parameter('square_side_length').get_parameter_value().double_value
+#         self.turn_angle = self.get_parameter('turn_angle').get_parameter_value().double_value
+#         self.detection_spins = self.get_parameter('detection_spins').get_parameter_value().integer_value
+        
+#         # State machine variables
+#         self.state = "FORWARD"  # States: FORWARD, WAITING, DETECT_BALL, TURNING
+#         self.side_count = 0  # Track which side of square we're on (0-3)
+#         self.spin_count = 0  # Track how many 360° spins completed
+#         self.start_time = None
+#         self.movement_duration = 0.0
+        
+#         # Ball detection variables
+#         self.ball_detected = False
+#         self.ball_position = None
+        
+#         # Timer for control loop
+#         timer_period = 0.1  # seconds
+#         self.timer = self.create_timer(timer_period, self.timer_callback)
+        
+#         self.get_logger().info('Square Grid with Ball Detection Node Started!')
+#         self.get_logger().info(f'Square side length: {self.square_side_length}m')
+#         self.get_logger().info(f'Will perform {self.detection_spins} detection spins after each side')
+        
+#     def ball_callback(self, msg):
+#         """Callback when ball is detected"""
+#         self.ball_detected = True
+#         self.ball_position = msg
+#         self.get_logger().info(f'Ball detected at X: {msg.x:.3f}, Z: {msg.z:.3f}')
+        
+#     def timer_callback(self):
+#         msg = Twist()
+#         current_time = time.time()
+        
+#         if self.state == "FORWARD":
+#             if self.start_time is None:
+#                 # Starting a new forward movement
+#                 self.start_time = current_time
+#                 self.movement_duration = self.square_side_length / self.linear_speed
+#                 self.get_logger().info(f'Moving forward - Side {self.side_count + 1}/4')
+            
+#             elapsed = current_time - self.start_time
+            
+#             if elapsed < self.movement_duration:
+#                 # Continue moving forward
+#                 msg.linear.x = self.linear_speed
+#                 msg.angular.z = 0.0
+#             else:
+#                 # Finished moving forward, transition to ball detection
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#                 self.publisher_.publish(msg)
+                
+#                 self.state = "WAITING"
+#                 self.start_time = current_time
+#                 self.movement_duration = 0.5  # Wait 0.5 seconds before detecting
+#                 self.spin_count = 0  # Reset spin counter
+#                 self.ball_detected = False  # Reset ball detection flag
+#                 self.get_logger().info('Forward movement complete, waiting before detection...')
+                
+#         elif self.state == "WAITING":
+#             # Brief pause before next action
+#             elapsed = current_time - self.start_time
+            
+#             if elapsed < self.movement_duration:
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#             else:
+#                 # Transition to ball detection mode
+#                 self.state = "DETECT_BALL"
+#                 self.start_time = None
+#                 self.get_logger().info('Entering ball detection mode...')
+                
+#         elif self.state == "DETECT_BALL":
+#             if self.start_time is None:
+#                 # Starting a new 360° spin
+#                 self.start_time = current_time
+#                 # Calculate time for one full rotation (360° = 2π radians)
+#                 full_rotation_rad = 2 * math.pi
+#                 self.movement_duration = full_rotation_rad / self.angular_speed
+#                 self.get_logger().info(f'Detection spin {self.spin_count + 1}/{self.detection_spins}')
+            
+#             elapsed = current_time - self.start_time
+            
+#             if elapsed < self.movement_duration:
+#                 # Continue spinning to detect ball
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = self.angular_speed  # Spin counterclockwise
+#             else:
+#                 # Finished one 360° spin
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#                 self.publisher_.publish(msg)
+                
+#                 self.spin_count += 1
+                
+#                 if self.spin_count >= self.detection_spins:
+#                     # Completed all detection spins
+#                     self.get_logger().info(f'Detection complete. Ball detected: {self.ball_detected}')
+                    
+#                     # Transition to WAITING before turning
+#                     self.state = "WAITING_BEFORE_TURN"
+#                     self.start_time = current_time
+#                     self.movement_duration = 0.5
+#                 else:
+#                     # Do another detection spin
+#                     self.start_time = None
+                    
+#         elif self.state == "WAITING_BEFORE_TURN":
+#             # Brief pause before turning
+#             elapsed = current_time - self.start_time
+            
+#             if elapsed < self.movement_duration:
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#             else:
+#                 # Transition to turning
+#                 self.state = "TURNING"
+#                 self.start_time = None
+                
+#         elif self.state == "TURNING":
+#             if self.start_time is None:
+#                 # Starting a 90° turn
+#                 self.start_time = current_time
+#                 turn_angle_rad = math.radians(self.turn_angle)
+#                 self.movement_duration = turn_angle_rad / self.angular_speed
+#                 self.get_logger().info(f'Turning {self.turn_angle} degrees...')
+            
+#             elapsed = current_time - self.start_time
+            
+#             if elapsed < self.movement_duration:
+#                 # Continue turning
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = self.angular_speed
+#             else:
+#                 # Finished turning
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#                 self.publisher_.publish(msg)
+                
+#                 self.side_count += 1
+                
+#                 if self.side_count >= 4:
+#                     # Completed one full square
+#                     self.get_logger().info('Square completed! Starting next square...')
+#                     self.side_count = 0
+                
+#                 # Transition back to forward movement
+#                 self.state = "FORWARD"
+#                 self.start_time = None
+        
+#         self.publisher_.publish(msg)
+    
+#     def stop_robot(self):
+#         """Helper method to stop the robot"""
+#         msg = Twist()
+#         msg.linear.x = 0.0
+#         msg.angular.z = 0.0
+#         self.publisher_.publish(msg)
+
+# def main(args=None):
+#     rclpy.init(args=args)
+#     square_grid = SquareGridWithDetection()
+    
+#     try:
+#         rclpy.spin(square_grid)
+#     except KeyboardInterrupt:
+#         square_grid.get_logger().info('Shutting down...')
+#         square_grid.stop_robot()
+#     finally:
+#         square_grid.destroy_node()
+#         rclpy.shutdown()
+
+# if __name__ == '__main__':
+#     main()
+
+
+
+####################################################
+
+# FROM SAV (NOV 10), goes in a square
+
+# import rclpy
+# from rclpy.node import Node
+# from geometry_msgs.msg import Twist
+# import time
+# import math
+
+# class SquareGrid(Node):
+#     def __init__(self):
+#         super().__init__('square_grid')
+        
+#         # Publisher for robot velocity commands
+#         self.publisher_ = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
+        
+#         # Parameters for square movement
+#         self.declare_parameter("linear_speed", 0.2)  # m/s forward speed
+#         self.declare_parameter("angular_speed", 0.5)  # rad/s turning speed
+#         self.declare_parameter("square_side_length", 1.0)  # meters
+#         self.declare_parameter("turn_angle", 90.0)  # degrees
+        
+#         self.linear_speed = self.get_parameter('linear_speed').get_parameter_value().double_value
+#         self.angular_speed = self.get_parameter('angular_speed').get_parameter_value().double_value
+#         self.square_side_length = self.get_parameter('square_side_length').get_parameter_value().double_value
+#         self.turn_angle = self.get_parameter('turn_angle').get_parameter_value().double_value
+        
+#         # State machine variables
+#         self.state = "FORWARD"  # States: FORWARD, TURNING, WAITING
+#         self.side_count = 0  # Track which side of square we're on (0-3)
+#         self.start_time = None
+#         self.movement_duration = 0.0
+        
+#         # Timer for control loop
+#         timer_period = 0.1  # seconds
+#         self.timer = self.create_timer(timer_period, self.timer_callback)
+        
+#         self.get_logger().info('Square Grid Node Started!')
+#         self.get_logger().info(f'Square side length: {self.square_side_length}m')
+        
+#     def timer_callback(self):
+#         msg = Twist()
+#         current_time = time.time()
+        
+#         if self.state == "FORWARD":
+#             if self.start_time is None:
+#                 # Starting a new forward movement
+#                 self.start_time = current_time
+#                 self.movement_duration = self.square_side_length / self.linear_speed
+#                 self.get_logger().info(f'Moving forward - Side {self.side_count + 1}/4')
+            
+#             elapsed = current_time - self.start_time
+            
+#             if elapsed < self.movement_duration:
+#                 # Continue moving forward
+#                 msg.linear.x = self.linear_speed
+#                 msg.angular.z = 0.0
+#             else:
+#                 # Finished moving forward, transition to turning
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#                 self.publisher_.publish(msg)
+                
+#                 self.state = "WAITING"
+#                 self.start_time = current_time
+#                 self.movement_duration = 0.5  # Wait 0.5 seconds before turning
+#                 self.get_logger().info('Forward movement complete, waiting...')
+                
+#         elif self.state == "WAITING":
+#             # Brief pause before turning
+#             elapsed = current_time - self.start_time
+            
+#             if elapsed < self.movement_duration:
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#             else:
+#                 # Transition to turning
+#                 self.state = "TURNING"
+#                 self.start_time = None
+                
+#         elif self.state == "TURNING":
+#             if self.start_time is None:
+#                 # Starting a new turn
+#                 self.start_time = current_time
+#                 turn_angle_rad = math.radians(self.turn_angle)
+#                 self.movement_duration = turn_angle_rad / self.angular_speed
+#                 self.get_logger().info(f'Turning {self.turn_angle} degrees...')
+            
+#             elapsed = current_time - self.start_time
+            
+#             if elapsed < self.movement_duration:
+#                 # Continue turning (positive angular.z = counterclockwise)
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = self.angular_speed
+#             else:
+#                 # Finished turning
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+#                 self.publisher_.publish(msg)
+                
+#                 self.side_count += 1
+                
+#                 if self.side_count >= 4:
+#                     # Completed one full square
+#                     self.get_logger().info('Square completed! Starting next square...')
+#                     self.side_count = 0
+                
+#                 # Transition back to forward movement
+#                 self.state = "FORWARD"
+#                 self.start_time = None
+        
+#         self.publisher_.publish(msg)
+    
+#     def stop_robot(self):
+#         """Helper method to stop the robot"""
+#         msg = Twist()
+#         msg.linear.x = 0.0
+#         msg.angular.z = 0.0
+#         self.publisher_.publish(msg)
+
+# def main(args=None):
+#     rclpy.init(args=args)
+#     square_grid = SquareGrid()
+    
+#     try:
+#         rclpy.spin(square_grid)
+#     except KeyboardInterrupt:
+#         square_grid.get_logger().info('Shutting down...')
+#         square_grid.stop_robot()
+#     finally:
+#         square_grid.destroy_node()
+#         rclpy.shutdown()
+
+# if __name__ == '__main__':
+#     main()
 
 
 
