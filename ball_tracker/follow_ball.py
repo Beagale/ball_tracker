@@ -1,4 +1,4 @@
-# FROM ABBY (NOV 10)
+# FROM ABBY (NOV 11) should reorient itself correctly to move to next point
 
 import rclpy
 from rclpy.node import Node
@@ -54,11 +54,12 @@ class FollowBall(Node):
         self.lastrcvtime = time.time() - 10000
         
         # State machine for square grid navigation
-        self.state = "MOVING_TO_CORNER"  # States: MOVING_TO_CORNER, ROTATING, SEARCHING, COLLECTING, RETURNING
+        self.state = "MOVING_TO_CORNER"  # States: MOVING_TO_CORNER, ROTATING, SEARCHING, COLLECTING, RETURNING, REORIENTING
         self.current_corner = 0  # 0, 1, 2, 3 for the four corners
         self.state_start_time = time.time()
         self.collection_start_pos = None  # Store where we started collecting
         self.return_duration = 0.0  # Time it took to collect (for returning)
+        self.reorientation_angle = 0.0  # Angle turned during collection (to reverse)
         
     def timer_callback(self):
         msg = Twist()
@@ -80,6 +81,7 @@ class FollowBall(Node):
                 self.state = "COLLECTING"
                 self.collection_start_pos = current_time
                 self.return_duration = 0.0
+                self.reorientation_angle = 0.0  # Reset angle tracking
             elif elapsed >= self.square_side_duration:
                 # Reached corner, start rotating
                 self.state = "ROTATING"
@@ -96,6 +98,7 @@ class FollowBall(Node):
                 self.state = "COLLECTING"
                 self.collection_start_pos = current_time
                 self.return_duration = 0.0
+                self.reorientation_angle = 0.0  # Reset angle tracking
             elif elapsed >= self.rotation_duration:
                 # Finished rotating, start searching
                 self.state = "SEARCHING"
@@ -111,6 +114,7 @@ class FollowBall(Node):
                 self.state = "COLLECTING"
                 self.collection_start_pos = current_time
                 self.return_duration = 0.0
+                self.reorientation_angle = 0.0  # Reset angle tracking
             elif elapsed >= self.search_duration:
                 # No ball found, move to next corner
                 self.current_corner = (self.current_corner + 1) % 4
@@ -132,6 +136,8 @@ class FollowBall(Node):
                     self.get_logger().info('Ball centered - going straight!')
                 else:
                     msg.angular.z = -self.angular_chase_multiplier * self.target_val
+                    # Track the angular velocity to estimate total rotation
+                    self.reorientation_angle += msg.angular.z * 0.1  # Accumulate angle (angular_vel * dt)
                     self.get_logger().info('Adjusting angle: {:.3f}'.format(msg.angular.z))
                 
                 msg.linear.x = self.forward_chase_speed
@@ -154,11 +160,32 @@ class FollowBall(Node):
             msg.angular.z = 0.0
             
             if elapsed >= self.return_duration:
-                # Returned, continue to next corner
+                # Returned, now need to reorient
+                self.state = "REORIENTING"
+                self.state_start_time = current_time
+                self.get_logger().info(f'Returned! Reorienting by {-self.reorientation_angle:.3f} radians')
+                
+        elif self.state == "REORIENTING":
+            self.get_logger().info(f'Reorienting to face next corner, elapsed: {elapsed:.2f}s')
+            # Rotate in opposite direction to undo collection rotation
+            # Calculate how long to rotate based on accumulated angle
+            reorient_duration = abs(self.reorientation_angle) / self.grid_angular_speed
+            
+            if self.reorientation_angle > 0:
+                msg.angular.z = -self.grid_angular_speed  # Rotate opposite direction
+            elif self.reorientation_angle < 0:
+                msg.angular.z = self.grid_angular_speed
+            else:
+                msg.angular.z = 0.0
+                
+            msg.linear.x = 0.0
+            
+            if elapsed >= reorient_duration or abs(self.reorientation_angle) < 0.01:
+                # Finished reorienting, continue to next corner
                 self.current_corner = (self.current_corner + 1) % 4
                 self.state = "MOVING_TO_CORNER"
                 self.state_start_time = current_time
-                self.get_logger().info(f'Returned! Moving to next corner: {self.current_corner}')
+                self.get_logger().info(f'Reoriented! Moving to next corner: {self.current_corner}')
         
         self.publisher_.publish(msg)
     
@@ -177,6 +204,188 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
+#############################################
+
+# FROM ABBY (NOV 10)
+
+# import rclpy
+# from rclpy.node import Node
+# from geometry_msgs.msg import Point
+# from geometry_msgs.msg import Twist
+# import time
+
+# class FollowBall(Node):
+#     def __init__(self):
+#         super().__init__('follow_ball')
+#         self.subscription = self.create_subscription(
+#             Point,
+#             '/detected_ball',
+#             self.listener_callback,
+#             10)
+#         self.publisher_ = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
+        
+#         # Original parameters
+#         self.declare_parameter("rcv_timeout_secs", 1.0)
+#         self.declare_parameter("angular_chase_multiplier", 0.7)
+#         self.declare_parameter("forward_chase_speed", 0.2)
+#         self.declare_parameter("search_angular_speed", 0.5)
+#         self.declare_parameter("max_size_thresh", 0.1)
+#         self.declare_parameter("filter_value", 0.9)
+#         self.declare_parameter("center_deadzone", 0.05)
+        
+#         # New parameters for square grid navigation
+#         self.declare_parameter("square_side_duration", 5.0)  # Time to travel one side (seconds)
+#         self.declare_parameter("rotation_duration", 3)  # Time to rotate 90 degrees (seconds)
+#         self.declare_parameter("search_duration", 15.5)  # Time to search at each corner (seconds)
+#         self.declare_parameter("grid_forward_speed", 0.2)  # Speed when moving between corners
+#         self.declare_parameter("grid_angular_speed", 0.5)  # Speed when rotating at corners
+        
+#         self.rcv_timeout_secs = self.get_parameter('rcv_timeout_secs').get_parameter_value().double_value
+#         self.angular_chase_multiplier = self.get_parameter('angular_chase_multiplier').get_parameter_value().double_value
+#         self.forward_chase_speed = self.get_parameter('forward_chase_speed').get_parameter_value().double_value
+#         self.search_angular_speed = self.get_parameter('search_angular_speed').get_parameter_value().double_value
+#         self.max_size_thresh = self.get_parameter('max_size_thresh').get_parameter_value().double_value
+#         self.filter_value = self.get_parameter('filter_value').get_parameter_value().double_value
+#         self.center_deadzone = self.get_parameter('center_deadzone').get_parameter_value().double_value
+        
+#         self.square_side_duration = self.get_parameter('square_side_duration').get_parameter_value().double_value
+#         self.rotation_duration = self.get_parameter('rotation_duration').get_parameter_value().double_value
+#         self.search_duration = self.get_parameter('search_duration').get_parameter_value().double_value
+#         self.grid_forward_speed = self.get_parameter('grid_forward_speed').get_parameter_value().double_value
+#         self.grid_angular_speed = self.get_parameter('grid_angular_speed').get_parameter_value().double_value
+        
+#         timer_period = 0.1  # seconds
+#         self.timer = self.create_timer(timer_period, self.timer_callback)
+        
+#         self.target_val = 0.0
+#         self.target_dist = 0.0
+#         self.lastrcvtime = time.time() - 10000
+        
+#         # State machine for square grid navigation
+#         self.state = "MOVING_TO_CORNER"  # States: MOVING_TO_CORNER, ROTATING, SEARCHING, COLLECTING, RETURNING
+#         self.current_corner = 0  # 0, 1, 2, 3 for the four corners
+#         self.state_start_time = time.time()
+#         self.collection_start_pos = None  # Store where we started collecting
+#         self.return_duration = 0.0  # Time it took to collect (for returning)
+        
+#     def timer_callback(self):
+#         msg = Twist()
+#         current_time = time.time()
+#         elapsed = current_time - self.state_start_time
+        
+#         # Check if ball is detected
+#         ball_detected = (time.time() - self.lastrcvtime < self.rcv_timeout_secs)
+        
+#         # State machine
+#         if self.state == "MOVING_TO_CORNER":
+#             self.get_logger().info(f'Moving to corner {self.current_corner}, elapsed: {elapsed:.2f}s')
+#             msg.linear.x = self.grid_forward_speed
+#             msg.angular.z = 0.0
+            
+#             # Check if ball detected while moving
+#             if ball_detected:
+#                 self.get_logger().info('Ball detected while moving! Starting collection.')
+#                 self.state = "COLLECTING"
+#                 self.collection_start_pos = current_time
+#                 self.return_duration = 0.0
+#             elif elapsed >= self.square_side_duration:
+#                 # Reached corner, start rotating
+#                 self.state = "ROTATING"
+#                 self.state_start_time = current_time
+                
+#         elif self.state == "ROTATING":
+#             self.get_logger().info(f'Rotating at corner {self.current_corner}, elapsed: {elapsed:.2f}s')
+#             msg.linear.x = 0.0
+#             msg.angular.z = self.grid_angular_speed
+            
+#             # Check if ball detected while rotating
+#             if ball_detected:
+#                 self.get_logger().info('Ball detected while rotating! Starting collection.')
+#                 self.state = "COLLECTING"
+#                 self.collection_start_pos = current_time
+#                 self.return_duration = 0.0
+#             elif elapsed >= self.rotation_duration:
+#                 # Finished rotating, start searching
+#                 self.state = "SEARCHING"
+#                 self.state_start_time = current_time
+                
+#         elif self.state == "SEARCHING":
+#             self.get_logger().info(f'Searching at corner {self.current_corner}, elapsed: {elapsed:.2f}s')
+#             msg.linear.x = 0.0
+#             msg.angular.z = self.search_angular_speed
+            
+#             if ball_detected:
+#                 self.get_logger().info('Ball found during search! Starting collection.')
+#                 self.state = "COLLECTING"
+#                 self.collection_start_pos = current_time
+#                 self.return_duration = 0.0
+#             elif elapsed >= self.search_duration:
+#                 # No ball found, move to next corner
+#                 self.current_corner = (self.current_corner + 1) % 4
+#                 self.state = "MOVING_TO_CORNER"
+#                 self.state_start_time = current_time
+#                 self.get_logger().info(f'Moving to next corner: {self.current_corner}')
+                
+#         elif self.state == "COLLECTING":
+#             self.get_logger().info('COLLECTING BALL!!!')
+#             self.get_logger().info('Target X: {:.3f}, Dist: {:.3f}'.format(self.target_val, self.target_dist))
+            
+#             if ball_detected:
+#                 # Track collection duration
+#                 self.return_duration = current_time - self.collection_start_pos
+                
+#                 # Apply deadzone - if ball is centered enough, don't rotate
+#                 if abs(self.target_val) < self.center_deadzone:
+#                     msg.angular.z = 0.0
+#                     self.get_logger().info('Ball centered - going straight!')
+#                 else:
+#                     msg.angular.z = -self.angular_chase_multiplier * self.target_val
+#                     self.get_logger().info('Adjusting angle: {:.3f}'.format(msg.angular.z))
+                
+#                 msg.linear.x = self.forward_chase_speed
+                
+#                 # Check if ball is close enough (collected)
+#                 if self.target_dist > self.max_size_thresh:
+#                     self.get_logger().info('Ball collected! Returning to position.')
+#                     self.state = "RETURNING"
+#                     self.state_start_time = current_time
+#             else:
+#                 # Lost the ball during collection, return
+#                 self.get_logger().info('Lost ball during collection! Returning to position.')
+#                 self.state = "RETURNING"
+#                 self.state_start_time = current_time
+                
+#         elif self.state == "RETURNING":
+#             self.get_logger().info(f'Returning to grid position, elapsed: {elapsed:.2f}s')
+#             # Move backward for the same duration as collection
+#             msg.linear.x = -self.grid_forward_speed
+#             msg.angular.z = 0.0
+            
+#             if elapsed >= self.return_duration:
+#                 # Returned, continue to next corner
+#                 self.current_corner = (self.current_corner + 1) % 4
+#                 self.state = "MOVING_TO_CORNER"
+#                 self.state_start_time = current_time
+#                 self.get_logger().info(f'Returned! Moving to next corner: {self.current_corner}')
+        
+#         self.publisher_.publish(msg)
+    
+#     def listener_callback(self, msg):
+#         f = self.filter_value
+#         self.target_val = self.target_val * f + msg.x * (1-f)
+#         self.target_dist = self.target_dist * f + msg.z * (1-f)
+#         self.lastrcvtime = time.time()
+
+# def main(args=None):
+#     rclpy.init(args=args)
+#     follow_ball = FollowBall()
+#     rclpy.spin(follow_ball)
+#     follow_ball.destroy_node()
+#     rclpy.shutdown()
+
+# if __name__ == '__main__':
+#     main()
 
 ######################
 
