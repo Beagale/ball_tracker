@@ -28,7 +28,7 @@ class FollowBall(Node):
         # New parameters for square grid navigation
         self.declare_parameter("square_side_duration", 5.0)  # Time to travel one side (seconds)
         self.declare_parameter("rotation_duration", 3)  # Time to rotate 90 degrees (seconds)
-        self.declare_parameter("search_duration", 15.5)  # Time to search at each corner (seconds)
+        self.declare_parameter("search_duration", 7.25)  # Time to search at each corner (seconds) (FOR SIM MODE = 15.5)
         self.declare_parameter("grid_forward_speed", 0.2)  # Speed when moving between corners
         self.declare_parameter("grid_angular_speed", 0.5)  # Speed when rotating at corners
         
