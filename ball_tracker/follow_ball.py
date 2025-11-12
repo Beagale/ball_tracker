@@ -28,9 +28,10 @@ class FollowBall(Node):
         # New parameters for square grid navigation
         self.declare_parameter("square_side_duration", 5.0)  # Time to travel one side (seconds)
         self.declare_parameter("rotation_duration", 3)  # Time to rotate 90 degrees (seconds) (FOR SIM MODE = 3)
-        self.declare_parameter("search_duration", 27.2)  # TO HAVE ROBOT ROTATE THEN GO STRAIGHT 25.12, OTHERWISE 27.2 (FOR SIM MODE = 15.5)
+        self.declare_parameter("search_duration", 27.825)  # TO HAVE ROBOT ROTATE THEN GO STRAIGHT 25.12, OTHERWISE 27.2 (FOR SIM MODE = 15.5)
         self.declare_parameter("grid_forward_speed", 0.2)  # Speed when moving between corners
         self.declare_parameter("grid_angular_speed", 0.5)  # Speed when rotating at corners (SIM MODE 0.5)
+        self.declare_parameter("distance_travelled", 0) #number grid points the bot traveled
         
         self.rcv_timeout_secs = self.get_parameter('rcv_timeout_secs').get_parameter_value().double_value
         self.angular_chase_multiplier = self.get_parameter('angular_chase_multiplier').get_parameter_value().double_value
@@ -45,6 +46,7 @@ class FollowBall(Node):
         self.search_duration = self.get_parameter('search_duration').get_parameter_value().double_value
         self.grid_forward_speed = self.get_parameter('grid_forward_speed').get_parameter_value().double_value
         self.grid_angular_speed = self.get_parameter('grid_angular_speed').get_parameter_value().double_value
+        self.distance_travelled = self.get_parameter('distance_travelled').get_parameter_value().integer_value
         
         timer_period = 0.1  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
@@ -76,35 +78,48 @@ class FollowBall(Node):
             msg.angular.z = 0.0
             
             # Check if ball detected while moving
-            if ball_detected:
-                self.get_logger().info('Ball detected while moving! Starting collection.')
-                self.state = "COLLECTING"
-                self.collection_start_pos = current_time
-                self.return_duration = 0.0
-                self.reorientation_angle = 0.0  # Reset angle tracking
-            elif elapsed >= self.square_side_duration:
+            # if ball_detected:
+            #     self.get_logger().info('Ball detected while moving! Starting collection.')
+            #     self.state = "COLLECTING"
+            #     self.collection_start_pos = current_time
+            #     self.return_duration = 0.0
+            #     self.reorientation_angle = 0.0  # Reset angle tracking
+            if elapsed >= self.square_side_duration:
                 # Reached corner, start rotating
-                self.state = "ROTATING"
-                self.state_start_time = current_time
-                
-        elif self.state == "ROTATING":
-            self.get_logger().info(f'Rotating at corner {self.current_corner}, elapsed: {elapsed:.2f}s')
-            msg.linear.x = 0.0
-            msg.angular.z = self.grid_angular_speed
-            
-            # Check if ball detected while rotating
-            if ball_detected:
-                self.get_logger().info('Ball detected while rotating! Starting collection.')
-                self.state = "COLLECTING"
-                self.collection_start_pos = current_time
-                self.return_duration = 0.0
-                self.reorientation_angle = 0.0  # Reset angle tracking
-            elif elapsed >= self.rotation_duration:
-                # Finished rotating, start searching
+                # self.state = "ROTATING"
+                self.dist_traveled = self.distance_travelled + 1 #Incrementing grid point distance by 1 everytime it goes forward.
                 self.state = "SEARCHING"
                 self.state_start_time = current_time
                 
+        # elif self.state == "ROTATING":
+        #     self.get_logger().info(f'Rotating at corner {self.current_corner}, elapsed: {elapsed:.2f}s')
+        #     msg.linear.x = 0.0
+        #     msg.angular.z = self.grid_angular_speed
+            
+        #     # Check if ball detected while rotating
+        #     if ball_detected:
+        #         self.get_logger().info('Ball detected while rotating! Starting collection.')
+        #         self.state = "COLLECTING"
+        #         self.collection_start_pos = current_time
+        #         self.return_duration = 0.0
+        #         self.reorientation_angle = 0.0  # Reset angle tracking
+        #     elif elapsed >= self.rotation_duration:
+        #         # Finished rotating, start searching
+        #         self.state = "SEARCHING"
+        #         self.state_start_time = current_time
+                
         elif self.state == "SEARCHING":
+            self.get_logger().info(f'TRAVELLED DISTANCE::: {self.distance_travelled}')
+            #Check to see if the bot reach the end of the court
+            if(self.distance_travelled == 2 or self.distance_travelled == 3):
+                self.search_duration = 29.5641
+                if(self.distance_travelled == 4):
+                    self.dist_travelled  = 0
+                
+            
+            else:
+                self.search_duration = 27.825
+
             self.get_logger().info(f'Searching at corner {self.current_corner}, elapsed: {elapsed:.2f}s')
             msg.linear.x = 0.0
             msg.angular.z = self.search_angular_speed
