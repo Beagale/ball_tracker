@@ -31,7 +31,7 @@ class FollowBall(Node):
         self.declare_parameter("search_duration", 27.825)  # TO HAVE ROBOT ROTATE THEN GO STRAIGHT 25.12, OTHERWISE 27.2 (FOR SIM MODE = 15.5)
         self.declare_parameter("grid_forward_speed", 0.2)  # Speed when moving between corners
         self.declare_parameter("grid_angular_speed", 0.5)  # Speed when rotating at corners (SIM MODE 0.5)
-        self.declare_parameter("distance_travelled", 0) #number grid points the bot traveled
+        self.declare_parameter("distance_travelled", 0.0) #number grid points the bot traveled
         
         self.rcv_timeout_secs = self.get_parameter('rcv_timeout_secs').get_parameter_value().double_value
         self.angular_chase_multiplier = self.get_parameter('angular_chase_multiplier').get_parameter_value().double_value
@@ -46,7 +46,7 @@ class FollowBall(Node):
         self.search_duration = self.get_parameter('search_duration').get_parameter_value().double_value
         self.grid_forward_speed = self.get_parameter('grid_forward_speed').get_parameter_value().double_value
         self.grid_angular_speed = self.get_parameter('grid_angular_speed').get_parameter_value().double_value
-        self.distance_travelled = self.get_parameter('distance_travelled').get_parameter_value().integer_value
+        self.distance_travelled = self.get_parameter('distance_travelled').get_parameter_value().double_value
         
         timer_period = 0.1  # seconds
         self.timer = self.create_timer(timer_period, self.timer_callback)
@@ -87,7 +87,7 @@ class FollowBall(Node):
             if elapsed >= self.square_side_duration:
                 # Reached corner, start rotating
                 # self.state = "ROTATING"
-                self.dist_traveled = self.distance_travelled + 1 #Incrementing grid point distance by 1 everytime it goes forward.
+                self.distance_traveled = self.distance_travelled + 1.0 #Incrementing grid point distance by 1 everytime it goes forward.
                 self.state = "SEARCHING"
                 self.state_start_time = current_time
                 
@@ -111,10 +111,10 @@ class FollowBall(Node):
         elif self.state == "SEARCHING":
             self.get_logger().info(f'TRAVELLED DISTANCE::: {self.distance_travelled}')
             #Check to see if the bot reach the end of the court
-            if(self.distance_travelled == 2 or self.distance_travelled == 3):
+            if(self.distance_travelled == 2.0 or self.distance_travelled == 3.0):
                 self.search_duration = 29.5641
-                if(self.distance_travelled == 4):
-                    self.dist_travelled  = 0
+                if(self.distance_travelled == 4.0):
+                    self.dist_travelled  = 0.0
                 
             
             else:
