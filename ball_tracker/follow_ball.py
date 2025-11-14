@@ -28,7 +28,7 @@ class FollowBall(Node):
         # New parameters for square grid navigation
         self.declare_parameter("square_side_duration", 5.0)  # Time to travel one side (seconds)
         self.declare_parameter("rotation_duration", 3)  # Time to rotate 90 degrees (seconds) (FOR SIM MODE = 3)
-        self.declare_parameter("search_duration", 27.825)  # TO HAVE ROBOT ROTATE THEN GO STRAIGHT 25.12, OTHERWISE 27.2 (FOR SIM MODE = 15.5)
+        self.declare_parameter("search_duration", 7.0)  # TO HAVE ROBOT ROTATE THEN GO STRAIGHT 25.12, OTHERWISE 27.2 (FOR SIM MODE = 15.5)
         self.declare_parameter("grid_forward_speed", 0.2)  # Speed when moving between corners
         self.declare_parameter("grid_angular_speed", 0.5)  # Speed when rotating at corners (SIM MODE 0.5)
         self.declare_parameter("distance_travelled", 0.0) #number grid points the bot traveled
@@ -87,7 +87,7 @@ class FollowBall(Node):
             if elapsed >= self.square_side_duration:
                 # Reached corner, start rotating
                 # self.state = "ROTATING"
-                self.distance_traveled = self.distance_travelled + 1.0 #Incrementing grid point distance by 1 everytime it goes forward.
+                self.distance_travelled = self.distance_travelled + 1.0 #Incrementing grid point distance by 1 everytime it goes forward.
                 self.state = "SEARCHING"
                 self.state_start_time = current_time
                 
@@ -111,14 +111,25 @@ class FollowBall(Node):
         elif self.state == "SEARCHING":
             self.get_logger().info(f'TRAVELLED DISTANCE::: {self.distance_travelled}')
             #Check to see if the bot reach the end of the court
-            if(self.distance_travelled == 2.0 or self.distance_travelled == 3.0):
-                self.search_duration = 29.5641
-                if(self.distance_travelled == 4.0):
-                    self.dist_travelled  = 0.0
+            if self.distance_travelled == 2.0 or self.distance_travelled == 3.0:
+                # After going up 3 times, turn left
+                # msg.angular.z = self.grid_angular_speed
+                self.search_duration = 8.9 # 9.725 # FOR 3 ROTATIONS 29.5641 # 30.14375 
+            elif self.distance_travelled == 5.0 or self.distance_travelled == 6.0:
+                # After going right 2 times, turn right
+                self.search_duration = 12.985 # FOR 3 ROTATIONS 25.50625 # 34.78125 # 48.69375
+            # elif self.distance_travelled == 8.0:
+            #     # After going down 3 times, turn right
+            #     msg.angular.z = -self.grid_angular_speed
+            # elif self.distance_travelled == 10.0:
+            #     # After going left 2 times, turn left to face up again
+            #     msg.angular.z = self.grid_angular_speed
+            else:
+                self.search_duration = 7.0 # 7.42 # FOR 3 ROTATIONS 27.825
                 
             
-            else:
-                self.search_duration = 27.825
+            # else:
+            #     self.search_duration = 27.825
 
             self.get_logger().info(f'Searching at corner {self.current_corner}, elapsed: {elapsed:.2f}s')
             msg.linear.x = 0.0
