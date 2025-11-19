@@ -409,12 +409,12 @@ class FollowBall(Node):
        
         # Original parameters
         self.declare_parameter("rcv_timeout_secs", 1.0)
-        self.declare_parameter("angular_chase_multiplier", 0.7) # NOV 18 has 0.4
+        self.declare_parameter("angular_chase_multiplier", 0.8) # NOV 18 has 0.4
         self.declare_parameter("forward_chase_speed", 0.2)
         self.declare_parameter("search_angular_speed", 0.5)
         self.declare_parameter("max_size_thresh", 0.1)
         self.declare_parameter("filter_value", 0.9)
-        self.declare_parameter("center_deadzone", 0.05)
+        self.declare_parameter("center_deadzone", 0.05) # 0.05)
         self.declare_parameter("validate", True)
        
         # Grid navigation parameters
@@ -633,7 +633,7 @@ class FollowBall(Node):
 
                     # NEED TO ADJUST AT PICKLEBALL COURT
                     if self.distance_travelled == 1.0 or self.distance_travelled == 4.0 or self.distance_travelled == 7.0 or self.distance_travelled == 8.0:
-                        n_extra_rotations = 29 # 19
+                        n_extra_rotations = 28 # 19
                     elif self.distance_travelled == 2.0 or self.distance_travelled == 3.0:
                         n_extra_rotations = 19 # 10 
                         self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
