@@ -418,7 +418,7 @@ class FollowBall(Node):
         self.declare_parameter("validate", True)
        
         # Grid navigation parameters
-        self.declare_parameter("square_side_duration", 5.0)
+        self.declare_parameter("square_side_duration", 7.5) # FOR 3 m = 7.5 ORIGINAL bot moves abt 1 m = 5.0
         self.declare_parameter("rotation_duration", 3)
         self.declare_parameter("search_duration", 10.3)
         self.declare_parameter("grid_forward_speed", 0.2)
@@ -637,10 +637,10 @@ class FollowBall(Node):
                     # NEED TO TEST NUMBER OF ROTATIONS FOR POINTS 2 - 8
                     # Going straight
                     if self.distance_travelled == 1.0 or self.distance_travelled == 4.0 or self.distance_travelled == 7.0 or self.distance_travelled == 8.0:
-                        n_extra_rotations = 30 # WORKED AT PB COURT 28 # 19
+                        n_extra_rotations = 32 # WORKED AT PB COURT 28 # 19
                     # Turning at corners
                     elif self.distance_travelled == 2.0 or self.distance_travelled == 3.0 or self.distance_travelled == 5.0 or self.distance_travelled == 6.0:
-                        n_extra_rotations = 20 # 19 # 10 
+                        n_extra_rotations = 22 # 19 # 10 
                         self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
                     # elif self.distance_travelled == 5.0: 
                     #     n_extra_rotations = -3
