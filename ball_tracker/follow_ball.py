@@ -521,15 +521,17 @@ class FollowBall(Node):
         else:
             self.robot_x = 4.0 - (self.distance_travelled - 8.0) * 2.0
             self.robot_y = 0.0
-    
-    def get_search_duration_for_point(self, grid_point):
-        """Get the search duration for a specific grid point"""
-        if grid_point == 2.0 or grid_point == 3.0:
-            return 13.0
-        elif grid_point == 5.0 or grid_point == 6.0:
-            return 17.95
-        else:
-            return self.search_duration
+
+    # SINCE WE ARE USING PUASES IN BETWEEN SEARCH, WE CAN USE 1 SEARCH_DURATION FOR EVERY GRID POINT, AND ADD MORE SEGMENTS TO SEARCH + PAUSE
+    # TO GET BOT ORIENTED CORRECTLY 
+    # def get_search_duration_for_point(self, grid_point):
+    #     """Get the search duration for a specific grid point"""
+    #     if grid_point == 2.0 or grid_point == 3.0:
+    #         return 13.0
+    #     elif grid_point == 5.0 or grid_point == 6.0:
+    #         return 17.95
+    #     else:
+    #         return self.search_duration
     
     def calculate_rotation_segment_duration(self, total_search_duration):
         """Calculate how long each rotation segment should be (between pauses)"""
@@ -550,7 +552,7 @@ class FollowBall(Node):
         self.update_robot_position()
        
         if self.state == "MOVING_TO_CORNER":
-            if self.distance_travelled == 8:
+            if self.distance_travelled == 5:
                 self.get_logger().info('Reached final point, entering STOP state')
                 self.state = "STOP"
 
@@ -569,7 +571,8 @@ class FollowBall(Node):
                 self.pause_detections = 0
                
         elif self.state == "SEARCHING":
-            current_search_duration = self.get_search_duration_for_point(self.distance_travelled)
+            # USE self.search_duration INSTEAD
+            current_search_duration = self.search_duration # self.get_search_duration_for_point(self.distance_travelled)
             self.rotation_segment_duration = self.calculate_rotation_segment_duration(current_search_duration)
             
             if not self.in_pause:
@@ -631,18 +634,20 @@ class FollowBall(Node):
                     
                     n_extra_rotations = 0
 
-                    # NEED TO ADJUST AT PICKLEBALL COURT
+                    # NEED TO TEST NUMBER OF ROTATIONS FOR POINTS 2 - 8
+                    # Going straight
                     if self.distance_travelled == 1.0 or self.distance_travelled == 4.0 or self.distance_travelled == 7.0 or self.distance_travelled == 8.0:
-                        n_extra_rotations = 28 # 19
-                    elif self.distance_travelled == 2.0 or self.distance_travelled == 3.0:
-                        n_extra_rotations = 19 # 10 
+                        n_extra_rotations = 30 # WORKED AT PB COURT 28 # 19
+                    # Turning at corners
+                    elif self.distance_travelled == 2.0 or self.distance_travelled == 3.0 or self.distance_travelled == 5.0 or self.distance_travelled == 6.0:
+                        n_extra_rotations = 20 # 19 # 10 
                         self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
-                    elif self.distance_travelled == 5.0: 
-                        n_extra_rotations = -3
-                        self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
-                    elif self.distance_travelled == 6.0:
-                        n_extra_rotations = -2
-                        self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
+                    # elif self.distance_travelled == 5.0: 
+                    #     n_extra_rotations = -3
+                    #     self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
+                    # elif self.distance_travelled == 6.0:
+                    #     n_extra_rotations = -2
+                    #     self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
                 
                 
                     # Check if all pauses completed

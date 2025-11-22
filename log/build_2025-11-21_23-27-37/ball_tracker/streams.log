@@ -1,0 +1,53 @@
+[7.118s] Invoking command in '/home/ubuntu/robot_ws/src/ball_tracker': PYTHONPATH=/home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base build/ball_tracker build --build-base /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build install --record /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/install.log --install-scripts $base/lib/ball_tracker --single-version-externally-managed install_data
+[9.809s] running egg_info
+[9.815s] creating build/ball_tracker/ball_tracker.egg-info
+[9.818s] writing build/ball_tracker/ball_tracker.egg-info/PKG-INFO
+[9.821s] writing dependency_links to build/ball_tracker/ball_tracker.egg-info/dependency_links.txt
+[9.827s] writing entry points to build/ball_tracker/ball_tracker.egg-info/entry_points.txt
+[9.829s] writing requirements to build/ball_tracker/ball_tracker.egg-info/requires.txt
+[9.830s] writing top-level names to build/ball_tracker/ball_tracker.egg-info/top_level.txt
+[9.838s] writing manifest file 'build/ball_tracker/ball_tracker.egg-info/SOURCES.txt'
+[10.192s] reading manifest file 'build/ball_tracker/ball_tracker.egg-info/SOURCES.txt'
+[10.201s] writing manifest file 'build/ball_tracker/ball_tracker.egg-info/SOURCES.txt'
+[10.202s] running build
+[10.204s] running build_py
+[10.206s] creating /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build
+[10.207s] creating /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib
+[10.208s] creating /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker
+[10.210s] copying ball_tracker/detect_ball_3d.py -> /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker
+[10.212s] copying ball_tracker/detect_ball.py -> /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker
+[10.213s] copying ball_tracker/process_image.py -> /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker
+[10.214s] copying ball_tracker/follow_ball.py -> /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker
+[10.218s] copying ball_tracker/__init__.py -> /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker
+[10.220s] running install
+[10.227s] running install_lib
+[10.236s] creating /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker
+[10.237s] copying /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker/detect_ball_3d.py -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker
+[10.238s] copying /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker/detect_ball.py -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker
+[10.240s] copying /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker/process_image.py -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker
+[10.242s] copying /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker/follow_ball.py -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker
+[10.248s] copying /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker/__init__.py -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker
+[10.253s] byte-compiling /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker/detect_ball_3d.py to detect_ball_3d.cpython-38.pyc
+[10.270s] byte-compiling /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker/detect_ball.py to detect_ball.cpython-38.pyc
+[10.278s] byte-compiling /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker/process_image.py to process_image.cpython-38.pyc
+[10.288s] byte-compiling /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker/follow_ball.py to follow_ball.cpython-38.pyc
+[10.318s] byte-compiling /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker/__init__.py to __init__.cpython-38.pyc
+[10.320s] running install_data
+[10.322s] creating /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/share/ament_index
+[10.323s] creating /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/share/ament_index/resource_index
+[10.324s] creating /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/share/ament_index/resource_index/packages
+[10.325s] copying resource/ball_tracker -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/share/ament_index/resource_index/packages
+[10.326s] copying package.xml -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/share/ball_tracker
+[10.328s] creating /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/share/ball_tracker/launch
+[10.330s] copying launch/example_launch_include.launch.py -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/share/ball_tracker/launch
+[10.331s] copying launch/ball_tracker.launch.py -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/share/ball_tracker/launch
+[10.332s] creating /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/share/ball_tracker/config
+[10.333s] copying config/ball_tracker_params_example.yaml -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/share/ball_tracker/config
+[10.334s] running install_egg_info
+[10.348s] Copying build/ball_tracker/ball_tracker.egg-info to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker-0.0.0-py3.8.egg-info
+[10.363s] running install_scripts
+[10.520s] Installing detect_ball script to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/ball_tracker
+[10.521s] Installing detect_ball_3d script to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/ball_tracker
+[10.523s] Installing follow_ball script to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/ball_tracker
+[10.528s] writing list of installed files to '/home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/install.log'
+[10.714s] Invoked command in '/home/ubuntu/robot_ws/src/ball_tracker' returned '0': PYTHONPATH=/home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base build/ball_tracker build --build-base /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build install --record /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/install.log --install-scripts $base/lib/ball_tracker --single-version-externally-managed install_data

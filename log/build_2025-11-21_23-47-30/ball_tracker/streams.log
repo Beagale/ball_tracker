@@ -1,0 +1,26 @@
+[7.259s] Invoking command in '/home/ubuntu/robot_ws/src/ball_tracker': PYTHONPATH=/home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base build/ball_tracker build --build-base /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build install --record /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/install.log --install-scripts $base/lib/ball_tracker --single-version-externally-managed install_data
+[9.979s] running egg_info
+[9.985s] writing build/ball_tracker/ball_tracker.egg-info/PKG-INFO
+[9.990s] writing dependency_links to build/ball_tracker/ball_tracker.egg-info/dependency_links.txt
+[9.992s] writing entry points to build/ball_tracker/ball_tracker.egg-info/entry_points.txt
+[9.993s] writing requirements to build/ball_tracker/ball_tracker.egg-info/requires.txt
+[9.994s] writing top-level names to build/ball_tracker/ball_tracker.egg-info/top_level.txt
+[10.369s] reading manifest file 'build/ball_tracker/ball_tracker.egg-info/SOURCES.txt'
+[10.381s] writing manifest file 'build/ball_tracker/ball_tracker.egg-info/SOURCES.txt'
+[10.384s] running build
+[10.385s] running build_py
+[10.387s] copying ball_tracker/follow_ball.py -> /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker
+[10.396s] running install
+[10.403s] running install_lib
+[10.417s] copying /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker/follow_ball.py -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker
+[10.429s] byte-compiling /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker/follow_ball.py to follow_ball.cpython-38.pyc
+[10.471s] running install_data
+[10.475s] running install_egg_info
+[10.492s] removing '/home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker-0.0.0-py3.8.egg-info' (and everything under it)
+[10.496s] Copying build/ball_tracker/ball_tracker.egg-info to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker-0.0.0-py3.8.egg-info
+[10.508s] running install_scripts
+[10.666s] Installing detect_ball script to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/ball_tracker
+[10.668s] Installing detect_ball_3d script to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/ball_tracker
+[10.670s] Installing follow_ball script to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/ball_tracker
+[10.675s] writing list of installed files to '/home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/install.log'
+[10.866s] Invoked command in '/home/ubuntu/robot_ws/src/ball_tracker' returned '0': PYTHONPATH=/home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base build/ball_tracker build --build-base /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build install --record /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/install.log --install-scripts $base/lib/ball_tracker --single-version-externally-managed install_data

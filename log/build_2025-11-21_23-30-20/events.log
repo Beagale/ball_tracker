@@ -1,0 +1,141 @@
+[0.000000] (-) TimerEvent: {}
+[0.002011] (ball_tracker) JobQueued: {'identifier': 'ball_tracker', 'dependencies': OrderedDict()}
+[0.004086] (ball_tracker) JobStarted: {'identifier': 'ball_tracker'}
+[0.098407] (-) TimerEvent: {}
+[0.204785] (-) TimerEvent: {}
+[0.307674] (-) TimerEvent: {}
+[0.409158] (-) TimerEvent: {}
+[0.510585] (-) TimerEvent: {}
+[0.612230] (-) TimerEvent: {}
+[0.713622] (-) TimerEvent: {}
+[0.814991] (-) TimerEvent: {}
+[0.917506] (-) TimerEvent: {}
+[1.018893] (-) TimerEvent: {}
+[1.120557] (-) TimerEvent: {}
+[1.221936] (-) TimerEvent: {}
+[1.323236] (-) TimerEvent: {}
+[1.424449] (-) TimerEvent: {}
+[1.525910] (-) TimerEvent: {}
+[1.628756] (-) TimerEvent: {}
+[1.734571] (-) TimerEvent: {}
+[1.838142] (-) TimerEvent: {}
+[1.951890] (-) TimerEvent: {}
+[2.054741] (-) TimerEvent: {}
+[2.157368] (-) TimerEvent: {}
+[2.261776] (-) TimerEvent: {}
+[2.364280] (-) TimerEvent: {}
+[2.465735] (-) TimerEvent: {}
+[2.567070] (-) TimerEvent: {}
+[2.668457] (-) TimerEvent: {}
+[2.769831] (-) TimerEvent: {}
+[2.871442] (-) TimerEvent: {}
+[2.972756] (-) TimerEvent: {}
+[3.073983] (-) TimerEvent: {}
+[3.175364] (-) TimerEvent: {}
+[3.277011] (-) TimerEvent: {}
+[3.378909] (-) TimerEvent: {}
+[3.480655] (-) TimerEvent: {}
+[3.581940] (-) TimerEvent: {}
+[3.683266] (-) TimerEvent: {}
+[3.784687] (-) TimerEvent: {}
+[3.886001] (-) TimerEvent: {}
+[3.987360] (-) TimerEvent: {}
+[4.088621] (-) TimerEvent: {}
+[4.189998] (-) TimerEvent: {}
+[4.291250] (-) TimerEvent: {}
+[4.392531] (-) TimerEvent: {}
+[4.493817] (-) TimerEvent: {}
+[4.595317] (-) TimerEvent: {}
+[4.696664] (-) TimerEvent: {}
+[4.797889] (-) TimerEvent: {}
+[4.899187] (-) TimerEvent: {}
+[5.000683] (-) TimerEvent: {}
+[5.102029] (-) TimerEvent: {}
+[5.203409] (-) TimerEvent: {}
+[5.304816] (-) TimerEvent: {}
+[5.406118] (-) TimerEvent: {}
+[5.507477] (-) TimerEvent: {}
+[5.608810] (-) TimerEvent: {}
+[5.710039] (-) TimerEvent: {}
+[5.811765] (-) TimerEvent: {}
+[5.912996] (-) TimerEvent: {}
+[6.014265] (-) TimerEvent: {}
+[6.115681] (-) TimerEvent: {}
+[6.217253] (-) TimerEvent: {}
+[6.318542] (-) TimerEvent: {}
+[6.419925] (-) TimerEvent: {}
+[6.521343] (-) TimerEvent: {}
+[6.623052] (-) TimerEvent: {}
+[6.724416] (-) TimerEvent: {}
+[6.825777] (-) TimerEvent: {}
+[6.927121] (-) TimerEvent: {}
+[7.028499] (-) TimerEvent: {}
+[7.129986] (-) TimerEvent: {}
+[7.231489] (-) TimerEvent: {}
+[7.333071] (-) TimerEvent: {}
+[7.435625] (-) TimerEvent: {}
+[7.537572] (-) TimerEvent: {}
+[7.612027] (ball_tracker) Command: {'cmd': ['/usr/bin/python3', '-W', 'ignore:setup.py install is deprecated', '-W', 'ignore:easy_install command is deprecated', 'setup.py', 'egg_info', '--egg-base', 'build/ball_tracker', 'build', '--build-base', '/home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build', 'install', '--record', '/home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/install.log', '--install-scripts', '$base/lib/ball_tracker', '--single-version-externally-managed', 'install_data'], 'cwd': '/home/ubuntu/robot_ws/src/ball_tracker', 'env': {'GJS_DEBUG_TOPICS': 'JS ERROR;JS LOG', 'LESSOPEN': '| /usr/bin/lesspipe %s', 'LANGUAGE': 'en', 'USER': 'ubuntu', 'SSH_AGENT_PID': '1320', 'XDG_SESSION_TYPE': 'x11', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/usr/lib/aarch64-linux-gnu/gazebo-11/plugins:/opt/ros/foxy/opt/yaml_cpp_vendor/lib:/opt/ros/foxy/opt/rviz_ogre_vendor/lib:/opt/ros/foxy/lib/aarch64-linux-gnu:/opt/ros/foxy/lib', 'HOME': '/home/ubuntu', 'OLDPWD': '/home/ubuntu/robot_ws', 'DESKTOP_SESSION': 'ubuntu', 'ROS_PYTHON_VERSION': '3', 'GNOME_SHELL_SESSION_MODE': 'ubuntu', 'GTK_MODULES': 'appmenu-gtk-module:gail:atk-bridge:appmenu-gtk-module', 'XDG_SEAT_PATH': '/org/freedesktop/DisplayManager/Seat0', 'MANAGERPID': '1230', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus', 'COLORTERM': 'truecolor', 'UBUNTU_MENUPROXY': '1', 'IM_CONFIG_PHASE': '1', 'ROS_DISTRO': 'foxy', 'LOGNAME': 'ubuntu', 'WINDOWID': '37748742', 'JOURNAL_STREAM': '9:32954', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'XDG_SESSION_CLASS': 'user', 'TERM': 'xterm-256color', 'GNOME_DESKTOP_SESSION_ID': 'this-is-deprecated', 'ROS_LOCALHOST_ONLY': '0', 'PATH': '/opt/ros/foxy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin', 'SESSION_MANAGER': 'local/ubuntu:@/tmp/.ICE-unix/1402,unix/ubuntu:/tmp/.ICE-unix/1402', 'GDM_LANG': 'en', 'INVOCATION_ID': 'a76226aba976400b9f46d0972e34018f', 'XDG_SESSION_PATH': '/org/freedesktop/DisplayManager/Session0', 'XDG_MENU_PREFIX': 'gnome-', 'XDG_RUNTIME_DIR': '/run/user/1000', 'DISPLAY': ':0', 'LANG': 'en_US.UTF-8', 'XDG_CURRENT_DESKTOP': 'ubuntu:GNOME', 'XMODIFIERS': '@im=ibus', 'XDG_SESSION_DESKTOP': 'ubuntu', 'XAUTHORITY': '/home/ubuntu/.Xauthority', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:', 'SSH_AUTH_SOCK': '/run/user/1000/keyring/ssh', 'XDG_GREETER_DATA_DIR': '/var/lib/lightdm-data/ubuntu', 'AMENT_PREFIX_PATH': '/opt/ros/foxy', 'SHELL': '/bin/bash', 'QT_ACCESSIBILITY': '1', 'GDMSESSION': 'ubuntu', 'LESSCLOSE': '/usr/bin/lesspipe %s %s', 'GPG_AGENT_INFO': '/run/user/1000/gnupg/S.gpg-agent:0:1', 'GJS_DEBUG_OUTPUT': 'stderr', 'QT_IM_MODULE': 'ibus', 'PWD': '/home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker', 'LC_ALL': 'en_US.UTF-8', 'XDG_CONFIG_DIRS': '/etc/xdg/xdg-ubuntu:/etc/xdg', 'XDG_DATA_DIRS': '/usr/share/ubuntu:/usr/local/share:/usr/share:/var/lib/snapd/desktop', 'PYTHONPATH': '/home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages:/opt/ros/foxy/lib/python3.8/site-packages', 'COLCON': '1', 'VTE_VERSION': '6003'}, 'shell': False}
+[7.640803] (-) TimerEvent: {}
+[7.744053] (-) TimerEvent: {}
+[7.845467] (-) TimerEvent: {}
+[7.946748] (-) TimerEvent: {}
+[8.048115] (-) TimerEvent: {}
+[8.150531] (-) TimerEvent: {}
+[8.252078] (-) TimerEvent: {}
+[8.353570] (-) TimerEvent: {}
+[8.454877] (-) TimerEvent: {}
+[8.556245] (-) TimerEvent: {}
+[8.657624] (-) TimerEvent: {}
+[8.758965] (-) TimerEvent: {}
+[8.860214] (-) TimerEvent: {}
+[8.961606] (-) TimerEvent: {}
+[9.062860] (-) TimerEvent: {}
+[9.164221] (-) TimerEvent: {}
+[9.265503] (-) TimerEvent: {}
+[9.367569] (-) TimerEvent: {}
+[9.468911] (-) TimerEvent: {}
+[9.570212] (-) TimerEvent: {}
+[9.671561] (-) TimerEvent: {}
+[9.772860] (-) TimerEvent: {}
+[9.874165] (-) TimerEvent: {}
+[9.975512] (-) TimerEvent: {}
+[10.076952] (-) TimerEvent: {}
+[10.179059] (-) TimerEvent: {}
+[10.269465] (ball_tracker) StdoutLine: {'line': b'running egg_info\n'}
+[10.276328] (ball_tracker) StdoutLine: {'line': b'writing build/ball_tracker/ball_tracker.egg-info/PKG-INFO\n'}
+[10.277936] (ball_tracker) StdoutLine: {'line': b'writing dependency_links to build/ball_tracker/ball_tracker.egg-info/dependency_links.txt\n'}
+[10.279433] (-) TimerEvent: {}
+[10.280613] (ball_tracker) StdoutLine: {'line': b'writing entry points to build/ball_tracker/ball_tracker.egg-info/entry_points.txt\n'}
+[10.282385] (ball_tracker) StdoutLine: {'line': b'writing requirements to build/ball_tracker/ball_tracker.egg-info/requires.txt\n'}
+[10.284199] (ball_tracker) StdoutLine: {'line': b'writing top-level names to build/ball_tracker/ball_tracker.egg-info/top_level.txt\n'}
+[10.379706] (-) TimerEvent: {}
+[10.481498] (-) TimerEvent: {}
+[10.583179] (-) TimerEvent: {}
+[10.658378] (ball_tracker) StdoutLine: {'line': b"reading manifest file 'build/ball_tracker/ball_tracker.egg-info/SOURCES.txt'\n"}
+[10.668792] (ball_tracker) StdoutLine: {'line': b"writing manifest file 'build/ball_tracker/ball_tracker.egg-info/SOURCES.txt'\n"}
+[10.670825] (ball_tracker) StdoutLine: {'line': b'running build\n'}
+[10.672126] (ball_tracker) StdoutLine: {'line': b'running build_py\n'}
+[10.674162] (ball_tracker) StdoutLine: {'line': b'copying ball_tracker/follow_ball.py -> /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker\n'}
+[10.682339] (ball_tracker) StdoutLine: {'line': b'running install\n'}
+[10.683898] (-) TimerEvent: {}
+[10.689279] (ball_tracker) StdoutLine: {'line': b'running install_lib\n'}
+[10.700110] (ball_tracker) StdoutLine: {'line': b'copying /home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/build/lib/ball_tracker/follow_ball.py -> /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker\n'}
+[10.713981] (ball_tracker) StdoutLine: {'line': b'byte-compiling /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker/follow_ball.py to follow_ball.cpython-38.pyc\n'}
+[10.754375] (ball_tracker) StdoutLine: {'line': b'running install_data\n'}
+[10.757908] (ball_tracker) StdoutLine: {'line': b'running install_egg_info\n'}
+[10.771889] (ball_tracker) StdoutLine: {'line': b"removing '/home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker-0.0.0-py3.8.egg-info' (and everything under it)\n"}
+[10.775759] (ball_tracker) StdoutLine: {'line': b'Copying build/ball_tracker/ball_tracker.egg-info to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/python3.8/site-packages/ball_tracker-0.0.0-py3.8.egg-info\n'}
+[10.784210] (-) TimerEvent: {}
+[10.790133] (ball_tracker) StdoutLine: {'line': b'running install_scripts\n'}
+[10.884459] (-) TimerEvent: {}
+[10.952510] (ball_tracker) StdoutLine: {'line': b'Installing detect_ball script to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/ball_tracker\n'}
+[10.954406] (ball_tracker) StdoutLine: {'line': b'Installing detect_ball_3d script to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/ball_tracker\n'}
+[10.956293] (ball_tracker) StdoutLine: {'line': b'Installing follow_ball script to /home/ubuntu/robot_ws/src/ball_tracker/install/ball_tracker/lib/ball_tracker\n'}
+[10.960547] (ball_tracker) StdoutLine: {'line': b"writing list of installed files to '/home/ubuntu/robot_ws/src/ball_tracker/build/ball_tracker/install.log'\n"}
+[10.985138] (-) TimerEvent: {}
+[11.087891] (-) TimerEvent: {}
+[11.145919] (ball_tracker) CommandEnded: {'returncode': 0}
+[11.189644] (-) TimerEvent: {}
+[11.270083] (ball_tracker) JobEnded: {'identifier': 'ball_tracker', 'rc': 0}
+[11.276794] (-) EventReactorShutdown: {}
