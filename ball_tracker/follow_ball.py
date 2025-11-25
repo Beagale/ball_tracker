@@ -552,9 +552,9 @@ class FollowBall(Node):
         self.update_robot_position()
        
         if self.state == "MOVING_TO_CORNER":
-            if self.distance_travelled == 5:
-                self.get_logger().info('Reached final point, entering STOP state')
-                self.state = "STOP"
+            # if self.distance_travelled == 5:
+            #     self.get_logger().info('Reached final point, entering STOP state')
+            #     self.state = "STOP"
 
             self.get_logger().info(f'Moving to point {self.distance_travelled}, position: ({self.robot_x:.1f}, {self.robot_y:.1f}), elapsed: {elapsed:.2f}s')
             msg.linear.x = self.grid_forward_speed
@@ -636,13 +636,15 @@ class FollowBall(Node):
 
                     # NEED TO TEST NUMBER OF ROTATIONS FOR POINTS 2 - 8
                     # Going straight
-                    if self.distance_travelled == 1.0 or self.distance_travelled == 4.0 or self.distance_travelled == 7.0 or self.distance_travelled == 8.0:
-                        n_extra_rotations = 32 # WORKED AT PB COURT 28 # 19
+                    if self.distance_travelled == 1.0 or self.distance_travelled == 7.0 or self.distance_travelled == 8.0:
+                        n_extra_rotations = 37 # 33 # WORKED AT PB COURT 28 # 19
                     # Turning at corners
                     elif self.distance_travelled == 2.0 or self.distance_travelled == 3.0 or self.distance_travelled == 5.0 or self.distance_travelled == 6.0:
-                        n_extra_rotations = 22 # 19 # 10 
+                        n_extra_rotations = 27 # 19 # 10 
                         self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
-                    # elif self.distance_travelled == 5.0: 
+                    elif self.distance_travelled == 4.0: # TEST: ADD MORE PAUSES                                                                                 
+                        n_extra_rotations = 41
+                        self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
                     #     n_extra_rotations = -3
                     #     self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
                     # elif self.distance_travelled == 6.0:
@@ -654,11 +656,16 @@ class FollowBall(Node):
                     if self.current_pause_index >= self.num_search_pauses + n_extra_rotations:
                         self.get_logger().info(f'Completed all {self.num_search_pauses} search pauses at point {self.distance_travelled}')
                         
-                        self.state = "MOVING_TO_CORNER"
-                        self.state_start_time = current_time
-                        self.current_pause_index = 0
-                        self.rotation_segments_completed = 0
-                        self.pause_detections = 0
+                        # STOP ROBOT ONCE REACHED LAST GRID POINT
+                        if self.distance_travelled >= 5.0:
+                            self.get_logger().info('Reached final grid point. Entering STOP state')
+                            self.state = "STOP"
+                        else:    
+                            self.state = "MOVING_TO_CORNER"
+                            self.state_start_time = current_time
+                            self.current_pause_index = 0
+                            self.rotation_segments_completed = 0
+                            self.pause_detections = 0
 
         elif self.state == "COLLECTING":
             self.validate = True
