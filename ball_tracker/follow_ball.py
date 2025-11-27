@@ -1,3 +1,420 @@
+# NOV 25 has grid code w/ pickleball court friction (collects ball, too many pauses though when returning)
+# import rclpy
+# from rclpy.node import Node
+# from geometry_msgs.msg import Point
+# from geometry_msgs.msg import Twist
+# import time
+# import math
+
+# class FollowBall(Node):
+#     def __init__(self):
+#         super().__init__('follow_ball')
+#         self.subscription = self.create_subscription(
+#             Point,
+#             '/detected_ball',
+#             self.listener_callback,
+#             10)
+#         self.publisher_ = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
+       
+#         # Original parameters
+#         self.declare_parameter("rcv_timeout_secs", 1.0)
+#         self.declare_parameter("angular_chase_multiplier", 0.8) # NOV 18 has 0.4
+#         self.declare_parameter("forward_chase_speed", 0.2)
+#         self.declare_parameter("search_angular_speed", 0.5) # 0.5)
+#         self.declare_parameter("max_size_thresh", 0.65) # 0.1)
+#         self.declare_parameter("filter_value", 0.9)
+#         self.declare_parameter("center_deadzone", 0.05) # 0.05)
+#         self.declare_parameter("validate", True)
+       
+#         # Grid navigation parameters
+#         self.declare_parameter("square_side_duration", 7.5) # FOR 3 m = 7.5 ORIGINAL bot moves abt 1 m = 5.0
+#         self.declare_parameter("rotation_duration", 3)
+#         self.declare_parameter("search_duration", 10.3)
+#         self.declare_parameter("grid_forward_speed", 0.2)
+#         self.declare_parameter("grid_angular_speed", 0.5)
+#         self.declare_parameter("distance_travelled", 0.0)
+       
+#         # Search pause parameters
+#         self.declare_parameter("num_search_pauses", 8)
+#         self.declare_parameter("pause_duration", 0.75)
+#         self.declare_parameter("required_detections", 2)
+#         self.declare_parameter("max_detection_age", 0.15)
+#         self.declare_parameter("pause_filter_value", 0.6)
+       
+#         # Boundary parameters
+#         self.declare_parameter("boundary_dx", 4.0)
+#         self.declare_parameter("boundary_dy", 4.0)
+#         self.declare_parameter("max_ball_distance", 4.0)
+
+#         self.declare_parameter("rotation_segment_duration", 0.0)
+#         self.rotation_segment_duration = self.get_parameter('rotation_segment_duration').get_parameter_value().double_value     
+       
+#         self.rcv_timeout_secs = self.get_parameter('rcv_timeout_secs').get_parameter_value().double_value
+#         self.angular_chase_multiplier = self.get_parameter('angular_chase_multiplier').get_parameter_value().double_value
+#         self.forward_chase_speed = self.get_parameter('forward_chase_speed').get_parameter_value().double_value
+#         self.search_angular_speed = self.get_parameter('search_angular_speed').get_parameter_value().double_value
+#         self.max_size_thresh = self.get_parameter('max_size_thresh').get_parameter_value().double_value
+#         self.filter_value = self.get_parameter('filter_value').get_parameter_value().double_value
+#         self.center_deadzone = self.get_parameter('center_deadzone').get_parameter_value().double_value
+       
+#         self.square_side_duration = self.get_parameter('square_side_duration').get_parameter_value().double_value
+#         self.rotation_duration = self.get_parameter('rotation_duration').get_parameter_value().double_value
+#         self.search_duration = self.get_parameter('search_duration').get_parameter_value().double_value
+#         self.grid_forward_speed = self.get_parameter('grid_forward_speed').get_parameter_value().double_value
+#         self.grid_angular_speed = self.get_parameter('grid_angular_speed').get_parameter_value().double_value
+#         self.distance_travelled = self.get_parameter('distance_travelled').get_parameter_value().double_value
+       
+#         self.num_search_pauses = self.get_parameter('num_search_pauses').get_parameter_value().integer_value
+#         self.pause_duration = self.get_parameter('pause_duration').get_parameter_value().double_value
+#         self.required_detections = self.get_parameter('required_detections').get_parameter_value().integer_value
+#         self.max_detection_age = self.get_parameter('max_detection_age').get_parameter_value().double_value
+#         self.pause_filter_value = self.get_parameter('pause_filter_value').get_parameter_value().double_value
+       
+#         self.boundary_dx = self.get_parameter('boundary_dx').get_parameter_value().double_value
+#         self.boundary_dy = self.get_parameter('boundary_dy').get_parameter_value().double_value
+#         self.max_ball_distance = self.get_parameter('max_ball_distance').get_parameter_value().double_value
+#         self.validate = self.get_parameter('validate').get_parameter_value().bool_value
+       
+#         timer_period = 0.1
+#         self.timer = self.create_timer(timer_period, self.timer_callback)
+       
+#         self.target_val = 0.0
+#         self.target_dist = 0.0
+#         self.lastrcvtime = time.time() - 10000
+       
+#         # Track robot position on grid
+#         self.robot_x = 0.0
+#         self.robot_y = 0.0
+       
+#         # Search pause tracking
+#         self.current_pause_index = 0
+#         self.in_pause = False
+#         self.pause_start_time = 0.0
+#         self.rotation_segments_completed = 0
+#         self.pause_detections = 0
+       
+#         # State machine
+#         self.state = "MOVING_TO_CORNER"
+#         self.state_start_time = time.time()
+#         self.collection_start_pos = None
+#         self.return_duration = 0.0
+#         self.reorientation_angle = 0.0
+#         self.saved_grid_point = 0.0
+#         self.search_rotation_before_detection = 0.0
+#         self.search_start_time = 0.0
+#         self.extra_forward_duration = 1.25
+#         # Added from CODE A for COMPLETING_SEARCH state
+#         self.search_elapsed_before_collection = 0.0
+#         # Track actual path taken during collection for accurate return
+#         self.collection_path = []  # List of (linear_vel, angular_vel, timestamp) tuples
+
+       
+#     def is_ball_in_bounds(self, ball_distance):
+#         """Check if the ball is within the 4m x 4m boundary."""
+#         if ball_distance > self.max_ball_distance:
+#             self.get_logger().info(f'Ball too far ({ball_distance:.2f}m) - outside {self.max_ball_distance}m boundary')
+#             return False
+#         return True
+   
+#     def update_robot_position(self):
+#         """Update robot's estimated position on the grid based on distance_travelled"""
+#         if self.distance_travelled <= 3.0:
+#             self.robot_x = 0.0
+#             self.robot_y = self.distance_travelled * 2.0
+#         elif self.distance_travelled <= 5.0:
+#             self.robot_x = (self.distance_travelled - 3.0) * 2.0
+#             self.robot_y = 4.0
+#         elif self.distance_travelled <= 8.0:
+#             self.robot_x = 4.0
+#             self.robot_y = 4.0 - (self.distance_travelled - 5.0) * 2.0
+#         else:
+#             self.robot_x = 4.0 - (self.distance_travelled - 8.0) * 2.0
+#             self.robot_y = 0.0
+
+#     def calculate_rotation_segment_duration(self, total_search_duration):
+#         """Calculate how long each rotation segment should be (between pauses)"""
+#         total_pause_time = self.num_search_pauses * self.pause_duration
+#         total_rotation_time = total_search_duration - total_pause_time
+#         rotation_segment_duration = total_rotation_time / self.num_search_pauses
+#         return rotation_segment_duration
+           
+#     def timer_callback(self):
+#         msg = Twist()
+#         current_time = time.time()
+#         elapsed = current_time - self.state_start_time
+       
+#         ball_detected = (time.time() - self.lastrcvtime < self.rcv_timeout_secs)
+#         detection_age = current_time - self.lastrcvtime
+       
+#         from_returning = False
+
+#         # Update robot position estimate
+#         self.update_robot_position()
+       
+#         if self.state == "MOVING_TO_CORNER":
+#             self.get_logger().info(f'Moving to point {self.distance_travelled}, position: ({self.robot_x:.1f}, {self.robot_y:.1f}), elapsed: {elapsed:.2f}s')
+#             msg.linear.x = self.grid_forward_speed
+#             msg.angular.z = 0.0
+           
+#             if elapsed >= self.square_side_duration:
+#                 self.distance_travelled = self.distance_travelled + 1.0
+#                 self.state = "SEARCHING"
+#                 self.state_start_time = current_time
+#                 # Reset search pause tracking
+#                 self.current_pause_index = 0
+#                 self.in_pause = False
+#                 self.rotation_segments_completed = 0
+#                 self.pause_detections = 0
+               
+#         elif self.state == "SEARCHING":
+#             # USE self.search_duration INSTEAD
+#             current_search_duration = self.search_duration
+#             self.rotation_segment_duration = self.calculate_rotation_segment_duration(current_search_duration)
+            
+#             if not self.in_pause:
+#                 # ROTATING phase
+#                 time_spent_in_pauses = self.current_pause_index * self.pause_duration
+#                 time_spent_rotating = elapsed - time_spent_in_pauses
+#                 current_segment_rotation_time = time_spent_rotating - (self.rotation_segments_completed * self.rotation_segment_duration)
+                
+#                 if current_segment_rotation_time < self.rotation_segment_duration:
+#                     self.get_logger().info(f'Searching (rotating) at point {self.distance_travelled}, segment {self.rotation_segments_completed + 1}/{self.num_search_pauses}, rotation time: {current_segment_rotation_time:.2f}/{self.rotation_segment_duration:.2f}s')
+#                     msg.linear.x = 0.0
+#                     msg.angular.z = self.search_angular_speed
+#                 else:
+#                     # Time to pause
+#                     self.in_pause = True
+#                     self.pause_start_time = current_time
+#                     self.pause_detections = 0
+#                     self.get_logger().info(f'Starting pause {self.current_pause_index + 1}/{self.num_search_pauses}')
+#             else:
+#                 # PAUSED phase
+#                 pause_elapsed = current_time - self.pause_start_time
+#                 self.get_logger().info(f'Paused at point {self.distance_travelled}, pause {self.current_pause_index + 1}/{self.num_search_pauses}, detections: {self.pause_detections}/{self.required_detections}, age: {detection_age:.3f}s ({pause_elapsed:.2f}/{self.pause_duration:.2f}s)')
+                
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+                
+#                 # Check for ball during pause
+#                 if ball_detected and detection_age < self.max_detection_age:
+#                     self.pause_detections += 1
+#                     self.get_logger().info(f'Fresh detection! Count: {self.pause_detections}/{self.required_detections}')
+                    
+#                     if self.pause_detections >= self.required_detections:
+#                         if self.is_ball_in_bounds(self.target_dist):
+#                             self.search_rotation_before_detection = elapsed
+#                             self.search_elapsed_before_collection = elapsed
+#                             self.get_logger().info(f'Ball CONFIRMED {self.pause_detections} times IN BOUNDS! Starting collection.')
+#                             self.saved_grid_point = self.distance_travelled
+#                             self.state = "COLLECTING"
+#                             self.collection_start_pos = current_time
+#                             self.return_duration = 0.0
+#                             self.reorientation_angle = 0.0
+#                             self.pause_detections = 0
+#                             self.collection_path = []  # Reset collection path
+#                             return
+#                         else:
+#                             self.get_logger().info(f'Ball detected but OUT OF BOUNDS - ignoring!')
+#                             self.pause_detections = 0
+#                 else:
+#                     if self.pause_detections > 0:
+#                         self.get_logger().info(f'Detection lost or stale (age: {detection_age:.3f}s) - resetting counter')
+#                     self.pause_detections = 0
+                
+#                 # Check if pause is complete
+#                 if pause_elapsed >= self.pause_duration:
+#                     self.in_pause = False
+#                     self.current_pause_index += 1
+#                     self.rotation_segments_completed += 1
+#                     self.pause_detections = 0
+                    
+#                     n_extra_rotations = 0
+                    
+#                     # NEED TO TEST NUMBER OF ROTATIONS FOR POINTS 2 - 8
+#                     # Going straight
+#                     if self.distance_travelled == 1.0 or self.distance_travelled == 4.0 or self.distance_travelled == 8.0:
+#                         if from_returning == True:
+#                             n_extra_rotations = 40
+#                             from_returning = False
+#                         else:    
+#                             n_extra_rotations = 31
+
+#                     # Turning at corners
+#                     elif self.distance_travelled == 2.0 or self.distance_travelled == 3.0 or self.distance_travelled == 5.0 or self.distance_travelled == 6.0:
+#                         n_extra_rotations = 21
+#                         self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
+                
+#                     # Check if all pauses completed
+#                     if self.current_pause_index >= self.num_search_pauses + n_extra_rotations:
+#                         self.get_logger().info(f'Completed all {self.num_search_pauses} search pauses at point {self.distance_travelled}')
+                        
+#                         # STOP ROBOT ONCE REACHED LAST GRID POINT
+#                         if self.distance_travelled >= 5.0:
+#                             self.get_logger().info('Reached final grid point. Entering STOP state')
+#                             self.state = "STOP"
+#                         else:    
+#                             self.state = "MOVING_TO_CORNER"
+#                             self.state_start_time = current_time
+#                             self.current_pause_index = 0
+#                             self.rotation_segments_completed = 0
+#                             self.pause_detections = 0
+
+#         elif self.state == "COLLECTING":
+#             # Reset reorientation_angle on first entry to COLLECTING state
+#             if elapsed < 0.05:  # First timer callback in this state
+#                 self.reorientation_angle = 0.0
+#                 self.get_logger().info('Starting COLLECTING - reset orientation tracking')
+            
+#             self.validate = True
+#             self.get_logger().info('COLLECTING BALL!!!')
+#             self.get_logger().info('Target X: {:.3f}, Dist: {:.3f}'.format(self.target_val, self.target_dist))
+           
+#             if ball_detected:
+#                 if not self.is_ball_in_bounds(self.target_dist):
+#                     self.get_logger().info('Ball moved OUT OF BOUNDS during collection - aborting!')
+#                     self.state = "RETURNING"
+#                     self.state_start_time = current_time
+#                     self.return_path_index = len(self.collection_path) - 1  # Start from the end
+#                     return
+               
+#                 if abs(self.target_val) < self.center_deadzone:
+#                     msg.angular.z = 0.0
+#                     self.get_logger().info('Ball centered - going straight!')
+#                 else:
+#                     msg.angular.z = -self.angular_chase_multiplier * self.target_val
+#                     self.get_logger().info('Adjusting angle: {:.3f}'.format(msg.angular.z))
+               
+#                 msg.linear.x = self.forward_chase_speed
+                
+#                 # Record the path taken AND accumulate angular changes
+#                 self.collection_path.append((msg.linear.x, msg.angular.z, current_time))
+#                 # Integrate angular velocity over time (timer_period = 0.1s)
+#                 self.reorientation_angle += msg.angular.z * 0.1
+#                 self.get_logger().info('Total accumulated rotation: {:.3f} rad'.format(self.reorientation_angle))
+               
+#                 if self.target_dist > self.max_size_thresh:
+#                     self.get_logger().info(f'Ball collected! Total rotation: {self.reorientation_angle:.3f} rad. Returning to position.')
+#                     self.state = "RETURNING"
+#                     self.state_start_time = current_time
+#                     self.return_path_index = len(self.collection_path) - 1  # Start from the end
+#             else:
+#                 self.get_logger().info('Lost ball during collection! Going forward for extra distance.')
+#                 self.state = "EXTRA_FORWARD"
+#                 self.state_start_time = current_time
+        
+#         elif self.state == "EXTRA_FORWARD":
+#             self.get_logger().info(f'Going forward after collection, elapsed: {elapsed:.2f}s')
+#             msg.linear.x = self.forward_chase_speed
+#             msg.angular.z = 0.0
+            
+#             # Record extra forward movement in collection path
+#             self.collection_path.append((msg.linear.x, msg.angular.z, current_time))
+#             # No angular change here, so no need to update reorientation_angle
+            
+#             if elapsed >= self.extra_forward_duration:
+#                 self.get_logger().info(f'Extra forward complete! Total accumulated rotation: {self.reorientation_angle:.3f} rad. Now returning.')
+#                 self.state = "RETURNING"
+#                 self.state_start_time = current_time
+#                 self.return_path_index = len(self.collection_path) - 1  # Start from the end
+               
+#         elif self.state == "RETURNING":
+#             if self.validate == True:
+#                 self.state = "EXTRA_FORWARD"
+#                 self.validate = False
+#                 self.state_start_time = current_time
+#                 return
+
+#             # Replay the collection path in reverse to return exactly to start position
+#             if hasattr(self, 'return_path_index') and self.return_path_index >= 0:
+#                 # Get the movement that was made at this step during collection
+#                 linear_vel, angular_vel, _ = self.collection_path[self.return_path_index]
+                
+#                 # Reverse the movement: negative linear, negative angular
+#                 msg.linear.x = -linear_vel
+#                 msg.angular.z = -angular_vel
+                
+#                 self.get_logger().info(f'Returning step {len(self.collection_path) - self.return_path_index}/{len(self.collection_path)}, lin: {msg.linear.x:.3f}, ang: {msg.angular.z:.3f}')
+                
+#                 self.return_path_index -= 1
+                
+#                 # Check if we've replayed all steps
+#                 if self.return_path_index < 0:
+#                     self.get_logger().info(f'Completed path reversal! Accumulated angle error: {self.reorientation_angle:.3f} rad. Moving to REORIENTING.')
+#                     self.state = "REORIENTING"
+#                     self.state_start_time = current_time
+#             else:
+#                 # Fallback to old behavior if path wasn't recorded
+#                 self.get_logger().info(f'Returning to grid position (fallback mode), elapsed: {elapsed:.2f}s')
+#                 msg.linear.x = -self.grid_forward_speed
+#                 msg.angular.z = 0.0
+                
+#                 # Use a default return duration if needed
+#                 if elapsed >= 5.0:  # Default timeout
+#                     self.state = "REORIENTING"
+#                     self.state_start_time = current_time
+               
+#         elif self.state == "REORIENTING":
+#             # Correct any accumulated orientation error
+#             self.get_logger().info(f'Reorienting, angle to correct: {self.reorientation_angle:.3f} rad, elapsed: {elapsed:.2f}s')
+            
+#             # Calculate how long we need to rotate based on accumulated error
+#             value_ref = self.grid_angular_speed *2
+#             reorient_duration = abs(self.reorientation_angle) / value_ref if self.grid_angular_speed > 0 else 0
+           
+#             # Rotate in the opposite direction of the accumulated error
+#             if self.reorientation_angle > 0.01:
+#                 msg.angular.z = -self.grid_angular_speed
+#             elif self.reorientation_angle < -0.01:
+#                 msg.angular.z = self.grid_angular_speed
+#             else:
+#                 msg.angular.z = 0.0
+               
+#             msg.linear.x = 0.0
+           
+#             from_returning = False
+#             if elapsed >= reorient_duration or abs(self.reorientation_angle) < 0.01:
+#                 # Return to SEARCHING to continue with remaining pauses
+#                 self.get_logger().info(f'Reoriented! Returning to SEARCHING at point {self.saved_grid_point}.')
+#                 self.distance_travelled = self.saved_grid_point
+#                 from_returning = True
+#                 self.state = "SEARCHING"
+#                 self.state_start_time = current_time - self.search_elapsed_before_collection
+#                 self.reorientation_angle = 0.0  # Reset for next collection
+#                 self.get_logger().info(f'Resuming search from pause {self.current_pause_index}/{self.num_search_pauses}')
+        
+#         elif self.state == "COMPLETING_SEARCH":
+#             # This state is no longer used - keeping for reference only
+#             # Robot now returns directly to SEARCHING state after REORIENTING
+#             pass
+
+#         elif self.state == "STOP":
+#             self.get_logger().info('Robot has stopped')
+#             msg.linear.x = 0.0
+#             msg.angular.z = 0.0
+       
+#         self.publisher_.publish(msg)
+   
+#     def listener_callback(self, msg):
+#         # Use more responsive filter during pause
+#         if self.state == "SEARCHING" and self.in_pause:
+#             f = self.pause_filter_value
+#         else:
+#             f = self.filter_value
+        
+#         self.target_val = self.target_val * f + msg.x * (1-f)
+#         self.target_dist = self.target_dist * f + msg.z * (1-f)
+#         self.lastrcvtime = time.time()
+
+# def main(args=None):
+#     rclpy.init(args=args)
+#     follow_ball = FollowBall()
+#     rclpy.spin(follow_ball)
+#     follow_ball.destroy_node()
+#     rclpy.shutdown()
+
+# if __name__ == '__main__':
+#     main()
+
 # # NOV 18 (Updated with CODE A's REORIENTING state, works okay but if robot follows a curved path to get ball, might not arrive exactly 
 # # at original spot)
 # import rclpy
@@ -387,9 +804,459 @@
 
 # if __name__ == '__main__':
 #      main()
-    
 
+# THURSDAY LAST WEEK    
 # # NOV 18 (Has code to track path taken towards ball, and plays it in reverse to get robot back to its original position)
+# import rclpy
+# from rclpy.node import Node
+# from geometry_msgs.msg import Point
+# from geometry_msgs.msg import Twist
+# import time
+# import math
+
+# class FollowBall(Node):
+#     def __init__(self):
+#         super().__init__('follow_ball')
+#         self.subscription = self.create_subscription(
+#             Point,
+#             '/detected_ball',
+#             self.listener_callback,
+#             10)
+#         self.publisher_ = self.create_publisher(Twist, '/diff_cont/cmd_vel_unstamped', 10)
+       
+#         # Original parameters
+#         self.declare_parameter("rcv_timeout_secs", 1.0)
+#         self.declare_parameter("angular_chase_multiplier", 0.8) # NOV 18 has 0.4
+#         self.declare_parameter("forward_chase_speed", 0.2)
+#         self.declare_parameter("search_angular_speed", 0.5)
+#         self.declare_parameter("max_size_thresh", 0.1)
+#         self.declare_parameter("filter_value", 0.9)
+#         self.declare_parameter("center_deadzone", 0.05) # 0.05)
+#         self.declare_parameter("validate", True)
+       
+#         # Grid navigation parameters
+#         self.declare_parameter("square_side_duration", 5.0)
+#         self.declare_parameter("rotation_duration", 3)
+#         self.declare_parameter("search_duration", 10.3)
+#         self.declare_parameter("grid_forward_speed", 0.2)
+#         self.declare_parameter("grid_angular_speed", 0.5)
+#         self.declare_parameter("distance_travelled", 0.0)
+       
+#         # Search pause parameters
+#         self.declare_parameter("num_search_pauses", 8)
+#         self.declare_parameter("pause_duration", 0.75)
+#         self.declare_parameter("required_detections", 2)
+#         self.declare_parameter("max_detection_age", 0.15)
+#         self.declare_parameter("pause_filter_value", 0.6)
+       
+#         # Boundary parameters
+#         self.declare_parameter("boundary_dx", 4.0)
+#         self.declare_parameter("boundary_dy", 4.0)
+#         self.declare_parameter("max_ball_distance", 4.0)
+
+#         self.declare_parameter("rotation_segment_duration", 0.0)
+#         self.rotation_segment_duration = self.get_parameter('rotation_segment_duration').get_parameter_value().double_value     
+       
+#         self.rcv_timeout_secs = self.get_parameter('rcv_timeout_secs').get_parameter_value().double_value
+#         self.angular_chase_multiplier = self.get_parameter('angular_chase_multiplier').get_parameter_value().double_value
+#         self.forward_chase_speed = self.get_parameter('forward_chase_speed').get_parameter_value().double_value
+#         self.search_angular_speed = self.get_parameter('search_angular_speed').get_parameter_value().double_value
+#         self.max_size_thresh = self.get_parameter('max_size_thresh').get_parameter_value().double_value
+#         self.filter_value = self.get_parameter('filter_value').get_parameter_value().double_value
+#         self.center_deadzone = self.get_parameter('center_deadzone').get_parameter_value().double_value
+       
+#         self.square_side_duration = self.get_parameter('square_side_duration').get_parameter_value().double_value
+#         self.rotation_duration = self.get_parameter('rotation_duration').get_parameter_value().double_value
+#         self.search_duration = self.get_parameter('search_duration').get_parameter_value().double_value
+#         self.grid_forward_speed = self.get_parameter('grid_forward_speed').get_parameter_value().double_value
+#         self.grid_angular_speed = self.get_parameter('grid_angular_speed').get_parameter_value().double_value
+#         self.distance_travelled = self.get_parameter('distance_travelled').get_parameter_value().double_value
+       
+#         self.num_search_pauses = self.get_parameter('num_search_pauses').get_parameter_value().integer_value
+#         self.pause_duration = self.get_parameter('pause_duration').get_parameter_value().double_value
+#         self.required_detections = self.get_parameter('required_detections').get_parameter_value().integer_value
+#         self.max_detection_age = self.get_parameter('max_detection_age').get_parameter_value().double_value
+#         self.pause_filter_value = self.get_parameter('pause_filter_value').get_parameter_value().double_value
+       
+#         self.boundary_dx = self.get_parameter('boundary_dx').get_parameter_value().double_value
+#         self.boundary_dy = self.get_parameter('boundary_dy').get_parameter_value().double_value
+#         self.max_ball_distance = self.get_parameter('max_ball_distance').get_parameter_value().double_value
+#         self.validate = self.get_parameter('validate').get_parameter_value().bool_value
+       
+#         timer_period = 0.1
+#         self.timer = self.create_timer(timer_period, self.timer_callback)
+       
+#         self.target_val = 0.0
+#         self.target_dist = 0.0
+#         self.lastrcvtime = time.time() - 10000
+       
+#         # Track robot position on grid
+#         self.robot_x = 0.0
+#         self.robot_y = 0.0
+       
+#         # Search pause tracking
+#         self.current_pause_index = 0
+#         self.in_pause = False
+#         self.pause_start_time = 0.0
+#         self.rotation_segments_completed = 0
+#         self.pause_detections = 0
+       
+#         # State machine
+#         self.state = "MOVING_TO_CORNER"
+#         self.state_start_time = time.time()
+#         self.collection_start_pos = None
+#         self.return_duration = 0.0
+#         self.reorientation_angle = 0.0
+#         self.saved_grid_point = 0.0
+#         self.search_rotation_before_detection = 0.0
+#         self.search_start_time = 0.0
+#         self.extra_forward_duration = 1.25
+#         # Added from CODE A for COMPLETING_SEARCH state
+#         self.search_elapsed_before_collection = 0.0
+#         # Track actual path taken during collection for accurate return
+#         self.collection_path = []  # List of (linear_vel, angular_vel, timestamp) tuples
+
+       
+#     def is_ball_in_bounds(self, ball_distance):
+#         """Check if the ball is within the 4m x 4m boundary."""
+#         if ball_distance > self.max_ball_distance:
+#             self.get_logger().info(f'Ball too far ({ball_distance:.2f}m) - outside {self.max_ball_distance}m boundary')
+#             return False
+#         return True
+   
+#     def update_robot_position(self):
+#         """Update robot's estimated position on the grid based on distance_travelled"""
+#         if self.distance_travelled <= 3.0:
+#             self.robot_x = 0.0
+#             self.robot_y = self.distance_travelled * 2.0
+#         elif self.distance_travelled <= 5.0:
+#             self.robot_x = (self.distance_travelled - 3.0) * 2.0
+#             self.robot_y = 4.0
+#         elif self.distance_travelled <= 8.0:
+#             self.robot_x = 4.0
+#             self.robot_y = 4.0 - (self.distance_travelled - 5.0) * 2.0
+#         else:
+#             self.robot_x = 4.0 - (self.distance_travelled - 8.0) * 2.0
+#             self.robot_y = 0.0
+    
+#     def get_search_duration_for_point(self, grid_point):
+#         """Get the search duration for a specific grid point"""
+#         if grid_point == 2.0 or grid_point == 3.0:
+#             return 13.0
+#         elif grid_point == 5.0 or grid_point == 6.0:
+#             return 17.95
+#         else:
+#             return self.search_duration
+    
+#     def calculate_rotation_segment_duration(self, total_search_duration):
+#         """Calculate how long each rotation segment should be (between pauses)"""
+#         total_pause_time = self.num_search_pauses * self.pause_duration
+#         total_rotation_time = total_search_duration - total_pause_time
+#         rotation_segment_duration = total_rotation_time / self.num_search_pauses
+#         return rotation_segment_duration
+           
+#     def timer_callback(self):
+#         msg = Twist()
+#         current_time = time.time()
+#         elapsed = current_time - self.state_start_time
+       
+#         ball_detected = (time.time() - self.lastrcvtime < self.rcv_timeout_secs)
+#         detection_age = current_time - self.lastrcvtime
+       
+#         # Update robot position estimate
+#         self.update_robot_position()
+       
+#         if self.state == "MOVING_TO_CORNER":
+#             if self.distance_travelled == 8:
+#                 self.get_logger().info('Reached final point, entering STOP state')
+#                 self.state = "STOP"
+
+#             self.get_logger().info(f'Moving to point {self.distance_travelled}, position: ({self.robot_x:.1f}, {self.robot_y:.1f}), elapsed: {elapsed:.2f}s')
+#             msg.linear.x = self.grid_forward_speed
+#             msg.angular.z = 0.0
+           
+#             if elapsed >= self.square_side_duration:
+#                 self.distance_travelled = self.distance_travelled + 1.0
+#                 self.state = "SEARCHING"
+#                 self.state_start_time = current_time
+#                 # Reset search pause tracking
+#                 self.current_pause_index = 0
+#                 self.in_pause = False
+#                 self.rotation_segments_completed = 0
+#                 self.pause_detections = 0
+               
+#         elif self.state == "SEARCHING":
+#             current_search_duration = self.get_search_duration_for_point(self.distance_travelled)
+#             self.rotation_segment_duration = self.calculate_rotation_segment_duration(current_search_duration)
+            
+#             if not self.in_pause:
+#                 # ROTATING phase
+#                 time_spent_in_pauses = self.current_pause_index * self.pause_duration
+#                 time_spent_rotating = elapsed - time_spent_in_pauses
+#                 current_segment_rotation_time = time_spent_rotating - (self.rotation_segments_completed * self.rotation_segment_duration)
+                
+#                 if current_segment_rotation_time < self.rotation_segment_duration:
+#                     self.get_logger().info(f'Searching (rotating) at point {self.distance_travelled}, segment {self.rotation_segments_completed + 1}/{self.num_search_pauses}, rotation time: {current_segment_rotation_time:.2f}/{self.rotation_segment_duration:.2f}s')
+#                     msg.linear.x = 0.0
+#                     msg.angular.z = self.search_angular_speed
+#                 else:
+#                     # Time to pause
+#                     self.in_pause = True
+#                     self.pause_start_time = current_time
+#                     self.pause_detections = 0
+#                     self.get_logger().info(f'Starting pause {self.current_pause_index + 1}/{self.num_search_pauses}')
+#             else:
+#                 # PAUSED phase
+#                 pause_elapsed = current_time - self.pause_start_time
+#                 self.get_logger().info(f'Paused at point {self.distance_travelled}, pause {self.current_pause_index + 1}/{self.num_search_pauses}, detections: {self.pause_detections}/{self.required_detections}, age: {detection_age:.3f}s ({pause_elapsed:.2f}/{self.pause_duration:.2f}s)')
+                
+#                 msg.linear.x = 0.0
+#                 msg.angular.z = 0.0
+                
+#                 # Check for ball during pause
+#                 if ball_detected and detection_age < self.max_detection_age:
+#                     self.pause_detections += 1
+#                     self.get_logger().info(f'Fresh detection! Count: {self.pause_detections}/{self.required_detections}')
+                    
+#                     if self.pause_detections >= self.required_detections:
+#                         if self.is_ball_in_bounds(self.target_dist):
+#                             self.search_rotation_before_detection = elapsed
+#                             self.search_elapsed_before_collection = elapsed
+#                             self.get_logger().info(f'Ball CONFIRMED {self.pause_detections} times IN BOUNDS! Starting collection.')
+#                             self.saved_grid_point = self.distance_travelled
+#                             self.state = "COLLECTING"
+#                             self.collection_start_pos = current_time
+#                             self.return_duration = 0.0
+#                             self.reorientation_angle = 0.0
+#                             self.pause_detections = 0
+#                             self.collection_path = []  # Reset collection path
+#                             return
+#                         else:
+#                             self.get_logger().info(f'Ball detected but OUT OF BOUNDS - ignoring!')
+#                             self.pause_detections = 0
+#                 else:
+#                     if self.pause_detections > 0:
+#                         self.get_logger().info(f'Detection lost or stale (age: {detection_age:.3f}s) - resetting counter')
+#                     self.pause_detections = 0
+                
+#                 # Check if pause is complete
+#                 if pause_elapsed >= self.pause_duration:
+#                     self.in_pause = False
+#                     self.current_pause_index += 1
+#                     self.rotation_segments_completed += 1
+#                     self.pause_detections = 0
+                    
+#                     n_extra_rotations = 0
+
+#                     # NEED TO ADJUST AT PICKLEBALL COURT
+#                     if self.distance_travelled == 1.0 or self.distance_travelled == 4.0 or self.distance_travelled == 7.0 or self.distance_travelled == 8.0:
+#                         n_extra_rotations = 28 # 19
+#                     elif self.distance_travelled == 2.0 or self.distance_travelled == 3.0:
+#                         n_extra_rotations = 19 # 10 
+#                         self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
+#                     elif self.distance_travelled == 5.0: 
+#                         n_extra_rotations = -3
+#                         self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
+#                     elif self.distance_travelled == 6.0:
+#                         n_extra_rotations = -2
+#                         self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
+                
+                
+#                     # Check if all pauses completed
+#                     if self.current_pause_index >= self.num_search_pauses + n_extra_rotations:
+#                         self.get_logger().info(f'Completed all {self.num_search_pauses} search pauses at point {self.distance_travelled}')
+                        
+#                         self.state = "MOVING_TO_CORNER"
+#                         self.state_start_time = current_time
+#                         self.current_pause_index = 0
+#                         self.rotation_segments_completed = 0
+#                         self.pause_detections = 0
+
+#         elif self.state == "COLLECTING":
+#             self.validate = True
+#             self.get_logger().info('COLLECTING BALL!!!')
+#             self.get_logger().info('Target X: {:.3f}, Dist: {:.3f}'.format(self.target_val, self.target_dist))
+           
+#             if ball_detected:
+#                 if not self.is_ball_in_bounds(self.target_dist):
+#                     self.get_logger().info('Ball moved OUT OF BOUNDS during collection - aborting!')
+#                     self.state = "RETURNING"
+#                     self.state_start_time = current_time
+#                     return
+               
+#                 if abs(self.target_val) < self.center_deadzone:
+#                     msg.angular.z = 0.0
+#                     self.get_logger().info('Ball centered - going straight!')
+#                 else:
+#                     msg.angular.z = -self.angular_chase_multiplier * self.target_val
+#                     # Accumulate ALL angular changes during collection, not just the last one
+#                     # timer_period is 0.1 seconds, so we integrate angular velocity over time
+#                     self.reorientation_angle += msg.angular.z * 0.1
+#                     self.get_logger().info('Adjusting angle: {:.3f}, Total rotation: {:.3f}'.format(msg.angular.z, self.reorientation_angle))
+               
+#                 msg.linear.x = self.forward_chase_speed
+                
+#                 # Record the path taken (linear velocity, angular velocity, timestamp)
+#                 self.collection_path.append((msg.linear.x, msg.angular.z, current_time))
+               
+#                 if self.target_dist > self.max_size_thresh:
+#                     self.get_logger().info('Ball collected! Returning to position.')
+#                     self.state = "RETURNING"
+#                     self.state_start_time = current_time
+#                     self.return_path_index = len(self.collection_path) - 1  # Start from the end
+#             else:
+#                 self.get_logger().info('Lost ball during collection! Going forward for extra distance.')
+#                 self.state = "EXTRA_FORWARD"
+#                 self.state_start_time = current_time
+        
+#         elif self.state == "EXTRA_FORWARD":
+#             self.get_logger().info(f'Going forward after collection, elapsed: {elapsed:.2f}s')
+#             msg.linear.x = self.forward_chase_speed
+#             msg.angular.z = 0.0
+            
+#             # Record extra forward movement in collection path
+#             self.collection_path.append((msg.linear.x, msg.angular.z, current_time))
+            
+#             if elapsed >= self.extra_forward_duration:
+#                 self.get_logger().info('Extra forward complete! Now returning to position.')
+#                 self.state = "RETURNING"
+#                 self.state_start_time = current_time
+#                 self.return_path_index = len(self.collection_path) - 1  # Start from the end
+               
+#         # elif self.state == "RETURNING":
+#         #     if self.validate == True:
+#         #         self.state = "EXTRA_FORWARD"
+#         #         self.validate = False
+#         #         self.state_start_time = current_time
+#         #         return
+
+#         #     # Replay the collection path in reverse to return exactly to start position
+#         #     if hasattr(self, 'return_path_index') and self.return_path_index >= 0:
+#         #         # Get the movement that was made at this step during collection
+#         #         linear_vel, angular_vel, _ = self.collection_path[self.return_path_index]
+                
+#         #         # Reverse the movement: negative linear, negative angular
+#         #         msg.linear.x = -linear_vel
+#         #         msg.angular.z = -angular_vel
+                
+#         #         self.get_logger().info(f'Returning step {len(self.collection_path) - self.return_path_index}/{len(self.collection_path)}, lin: {msg.linear.x:.3f}, ang: {msg.angular.z:.3f}')
+                
+#         #         self.return_path_index -= 1
+                
+#         #         # Check if we've replayed all steps
+#         #         if self.return_path_index < 0:
+#         #             self.get_logger().info('Completed path reversal! Moving to REORIENTING.')
+#         #             self.state = "REORIENTING"
+#         #             self.state_start_time = current_time
+#         #     else:
+#         #         # Fallback to old behavior if path wasn't recorded
+#         #         self.get_logger().info(f'Returning to grid position (fallback mode), elapsed: {elapsed:.2f}s')
+#         #         msg.linear.x = -self.grid_forward_speed
+#         #         msg.angular.z = 0.0
+                
+#         #         # Use a default return duration if needed
+#         #         if elapsed >= 5.0:  # Default timeout
+#         #             self.state = "REORIENTING"
+#         #             self.state_start_time = current_time
+
+#         elif self.state == "RETURNING":
+#             if self.validate == True:
+#                 self.state = "EXTRA_FORWARD"
+#                 self.validate = False
+#                 self.state_start_time = current_time
+#                 return
+
+#             # First rotate to face back toward start
+#             if not hasattr(self, 'return_rotated'):
+#                 self.return_rotated = False
+#                 self.collection_distance = len(self.collection_path) * self.forward_chase_speed * 0.1
+            
+#             if not self.return_rotated:
+#                 # Rotate 180 degrees plus compensate for collection rotation
+#                 target_rotation = math.pi - self.reorientation_angle
+#                 rotation_time = abs(target_rotation) / self.grid_angular_speed
+                
+#                 if elapsed < rotation_time:
+#                     msg.angular.z = self.grid_angular_speed if target_rotation > 0 else -self.grid_angular_speed
+#                     msg.linear.x = 0.0
+#                     self.get_logger().info(f'Rotating to face start: {elapsed:.2f}/{rotation_time:.2f}s')
+#                 else:
+#                     self.return_rotated = True
+#                     self.return_drive_start = current_time
+#             else:
+#                 # Drive straight back
+#                 drive_elapsed = current_time - self.return_drive_start
+#                 if drive_elapsed < self.collection_distance / self.forward_chase_speed:
+#                     msg.linear.x = self.forward_chase_speed
+#                     msg.angular.z = 0.0
+#                     self.get_logger().info(f'Driving back: {drive_elapsed:.2f}s')
+#                 else:
+#                     # Rotate back to original search orientation
+#                     self.get_logger().info('Back at search point! Resuming search.')
+#                     self.distance_travelled = self.saved_grid_point
+#                     self.state = "SEARCHING"
+#                     self.state_start_time = current_time - self.search_elapsed_before_collection
+#                     delattr(self, 'return_rotated')
+                    
+#         elif self.state == "REORIENTING":
+#             # CODE A's REORIENTING implementation
+#             self.get_logger().info(f'Reorienting to face next corner, elapsed: {elapsed:.2f}s')
+#             reorient_duration = abs(self.reorientation_angle) / self.grid_angular_speed if self.grid_angular_speed > 0 else 0
+           
+#             # if self.reorientation_angle > 0:
+#             #     msg.angular.z = -self.grid_angular_speed
+#             # elif self.reorientation_angle < 0:
+#             #     msg.angular.z = self.grid_angular_speed
+#             # else:
+#             #     msg.angular.z = 0.0
+               
+#             msg.linear.x = 0.0
+           
+#             if elapsed >= reorient_duration or abs(self.reorientation_angle) < 0.01:
+#                 # Return to SEARCHING to continue with remaining pauses
+#                 self.get_logger().info(f'Reoriented! Returning to SEARCHING at point {self.saved_grid_point} to continue pauses.')
+#                 self.distance_travelled = self.saved_grid_point
+#                 self.state = "SEARCHING"
+#                 # Calculate elapsed time to continue from where we left off
+#                 self.state_start_time = current_time - self.search_elapsed_before_collection
+#                 # Don't reset pause tracking - continue from where we were
+#                 self.get_logger().info(f'Resuming search from pause {self.current_pause_index}/{self.num_search_pauses}')
+        
+#         elif self.state == "COMPLETING_SEARCH":
+#             # This state is no longer used - keeping for reference only
+#             # Robot now returns directly to SEARCHING state after REORIENTING
+#             pass
+
+#         elif self.state == "STOP":
+#             self.get_logger().info('Robot has stopped')
+#             msg.linear.x = 0.0
+#             msg.angular.z = 0.0
+       
+#         self.publisher_.publish(msg)
+   
+#     def listener_callback(self, msg):
+#         # Use more responsive filter during pause
+#         if self.state == "SEARCHING" and self.in_pause:
+#             f = self.pause_filter_value
+#         else:
+#             f = self.filter_value
+        
+#         self.target_val = self.target_val * f + msg.x * (1-f)
+#         self.target_dist = self.target_dist * f + msg.z * (1-f)
+#         self.lastrcvtime = time.time()
+
+# def main(args=None):
+#     rclpy.init(args=args)
+#     follow_ball = FollowBall()
+#     rclpy.spin(follow_ball)
+#     follow_ball.destroy_node()
+#     rclpy.shutdown()
+
+# if __name__ == '__main__':
+#     main()
+
+# # # NOV 18 (Has code to track path taken towards ball, and plays it in reverse to get robot back to its original position)
+# HAS CODE FROM PICKLE BALL COURT NOV 25 (ONLY CHANGE IS ADDED REVISED RETURN AND REORIENT STATE)
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Point
@@ -411,8 +1278,8 @@ class FollowBall(Node):
         self.declare_parameter("rcv_timeout_secs", 1.0)
         self.declare_parameter("angular_chase_multiplier", 0.8) # NOV 18 has 0.4
         self.declare_parameter("forward_chase_speed", 0.2)
-        self.declare_parameter("search_angular_speed", 0.5)
-        self.declare_parameter("max_size_thresh", 0.1)
+        self.declare_parameter("search_angular_speed", 0.5) # 0.5)
+        self.declare_parameter("max_size_thresh", 0.4) # 0.1)
         self.declare_parameter("filter_value", 0.9)
         self.declare_parameter("center_deadzone", 0.05) # 0.05)
         self.declare_parameter("validate", True)
@@ -493,7 +1360,7 @@ class FollowBall(Node):
         self.saved_grid_point = 0.0
         self.search_rotation_before_detection = 0.0
         self.search_start_time = 0.0
-        self.extra_forward_duration = 1.25
+        self.extra_forward_duration = 2.0 # 1.25
         # Added from CODE A for COMPLETING_SEARCH state
         self.search_elapsed_before_collection = 0.0
         # Track actual path taken during collection for accurate return
@@ -636,15 +1503,15 @@ class FollowBall(Node):
 
                     # NEED TO TEST NUMBER OF ROTATIONS FOR POINTS 2 - 8
                     # Going straight
-                    if self.distance_travelled == 1.0 or self.distance_travelled == 7.0 or self.distance_travelled == 8.0:
-                        n_extra_rotations = 37 # 33 # WORKED AT PB COURT 28 # 19
+                    if self.distance_travelled == 1.0 or self.distance_travelled == 4.0 or self.distance_travelled == 8.0:
+                        n_extra_rotations = 38 # 33 # WORKED AT PB COURT 28 # 19
                     # Turning at corners
                     elif self.distance_travelled == 2.0 or self.distance_travelled == 3.0 or self.distance_travelled == 5.0 or self.distance_travelled == 6.0:
-                        n_extra_rotations = 27 # 19 # 10 
+                        n_extra_rotations = 28 # 19 # 10 
                         self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
-                    elif self.distance_travelled == 4.0: # TEST: ADD MORE PAUSES                                                                                 
-                        n_extra_rotations = 41
-                        self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
+                    # elif self.distance_travelled == 4.0: # TEST: ADD MORE PAUSES                                                                                 
+                    #     n_extra_rotations = 46
+                    #     self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
                     #     n_extra_rotations = -3
                     #     self.get_logger().info(f'n_extra_rotations = {n_extra_rotations}')
                     # elif self.distance_travelled == 6.0:
@@ -692,7 +1559,8 @@ class FollowBall(Node):
                 msg.linear.x = self.forward_chase_speed
                 
                 # Record the path taken (linear velocity, angular velocity, timestamp)
-                self.collection_path.append((msg.linear.x, msg.angular.z, current_time))
+                self.collection_path.append((msg.linear.x, current_time))
+               # self.collection_path.append((msg.linear.x, msg.angular.z, current_time))
                
                 if self.target_dist > self.max_size_thresh:
                     self.get_logger().info('Ball collected! Returning to position.')
@@ -710,7 +1578,8 @@ class FollowBall(Node):
             msg.angular.z = 0.0
             
             # Record extra forward movement in collection path
-            self.collection_path.append((msg.linear.x, msg.angular.z, current_time))
+            self.collection_path.append((msg.linear.x, current_time))
+            # self.collection_path.append((msg.linear.x, msg.angular.z, current_time))
             
             if elapsed >= self.extra_forward_duration:
                 self.get_logger().info('Extra forward complete! Now returning to position.')
@@ -728,11 +1597,12 @@ class FollowBall(Node):
             # Replay the collection path in reverse to return exactly to start position
             if hasattr(self, 'return_path_index') and self.return_path_index >= 0:
                 # Get the movement that was made at this step during collection
-                linear_vel, angular_vel, _ = self.collection_path[self.return_path_index]
+                linear_vel, _ = self.collection_path[self.return_path_index]
+                # linear_vel, angular_vel, _ = self.collection_path[self.return_path_index]
                 
                 # Reverse the movement: negative linear, negative angular
                 msg.linear.x = -linear_vel
-                msg.angular.z = -angular_vel
+                # msg.angular.z = -angular_vel
                 
                 self.get_logger().info(f'Returning step {len(self.collection_path) - self.return_path_index}/{len(self.collection_path)}, lin: {msg.linear.x:.3f}, ang: {msg.angular.z:.3f}')
                 
@@ -753,11 +1623,13 @@ class FollowBall(Node):
                 if elapsed >= 5.0:  # Default timeout
                     self.state = "REORIENTING"
                     self.state_start_time = current_time
+
+        
                
         elif self.state == "REORIENTING":
             # CODE A's REORIENTING implementation
             self.get_logger().info(f'Reorienting to face next corner, elapsed: {elapsed:.2f}s')
-            reorient_duration = abs(self.reorientation_angle) / self.grid_angular_speed if self.grid_angular_speed > 0 else 0
+            reorient_duration = (abs(self.reorientation_angle) / self.grid_angular_speed) * 0.5 if self.grid_angular_speed > 0 else 0
            
             # if self.reorientation_angle > 0:
             #     msg.angular.z = -self.grid_angular_speed
@@ -777,6 +1649,70 @@ class FollowBall(Node):
                 self.state_start_time = current_time - self.search_elapsed_before_collection
                 # Don't reset pause tracking - continue from where we were
                 self.get_logger().info(f'Resuming search from pause {self.current_pause_index}/{self.num_search_pauses}')
+
+
+        # elif self.state == "RETURNING":
+        #     if self.validate == True:
+        #         self.state = "EXTRA_FORWARD"
+        #         self.validate = False
+        #         self.state_start_time = current_time
+        #         return
+
+        #     # Replay the collection path in reverse to return exactly to start position
+        #     if hasattr(self, 'return_path_index') and self.return_path_index >= 0:
+        #         # Get the movement that was made at this step during collection
+        #         linear_vel, angular_vel, _ = self.collection_path[self.return_path_index]
+                
+        #         # Reverse the movement: negative linear, negative angular
+        #         msg.linear.x = -linear_vel
+        #         msg.angular.z = -angular_vel
+                
+        #         self.get_logger().info(f'Returning step {len(self.collection_path) - self.return_path_index}/{len(self.collection_path)}, lin: {msg.linear.x:.3f}, ang: {msg.angular.z:.3f}')
+                
+        #         self.return_path_index -= 1
+                
+        #         # Check if we've replayed all steps
+        #         if self.return_path_index < 0:
+        #             self.get_logger().info('Completed path reversal! Returning to SEARCHING.')
+        #             # Since we reversed the entire path including angular movements,
+        #             # we should already be properly oriented - skip REORIENTING
+        #             self.distance_travelled = self.saved_grid_point
+        #             self.state = "SEARCHING"
+        #             self.state_start_time = current_time - self.search_elapsed_before_collection
+        #             self.get_logger().info(f'Resuming search from pause {self.current_pause_index}/{self.num_search_pauses}')
+        #     else:
+        #         # Fallback to old behavior if path wasn't recorded
+        #         self.get_logger().info(f'Returning to grid position (fallback mode), elapsed: {elapsed:.2f}s')
+        #         msg.linear.x = -self.grid_forward_speed
+        #         msg.angular.z = 0.0
+                
+        #         # Use a default return duration if needed
+        #         if elapsed >= 5.0:  # Default timeout
+        #             self.state = "REORIENTING"
+        #             self.state_start_time = current_time
+               
+        # elif self.state == "REORIENTING":
+        #     # This state is only used as fallback when path reversal wasn't available
+        #     self.get_logger().info(f'Reorienting (fallback), angle to correct: {self.reorientation_angle:.3f}, elapsed: {elapsed:.2f}s')
+        #     reorient_duration = abs(self.reorientation_angle) / self.grid_angular_speed if self.grid_angular_speed > 0 else 0
+           
+        #     # Uncommented and fixed the rotation logic
+        #     if self.reorientation_angle > 0:
+        #         msg.angular.z = -self.grid_angular_speed
+        #     elif self.reorientation_angle < 0:
+        #         msg.angular.z = self.grid_angular_speed
+        #     else:
+        #         msg.angular.z = 0.0
+               
+        #     msg.linear.x = 0.0
+           
+        #     if elapsed >= reorient_duration or abs(self.reorientation_angle) < 0.01:
+        #         # Return to SEARCHING to continue with remaining pauses
+        #         self.get_logger().info(f'Reoriented! Returning to SEARCHING at point {self.saved_grid_point}.')
+        #         self.distance_travelled = self.saved_grid_point
+        #         self.state = "SEARCHING"
+        #         self.state_start_time = current_time - self.search_elapsed_before_collection
+        #         self.get_logger().info(f'Resuming search from pause {self.current_pause_index}/{self.num_search_pauses}')
         
         elif self.state == "COMPLETING_SEARCH":
             # This state is no longer used - keeping for reference only
